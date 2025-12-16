@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app.tenancy.db import init_db, get_session
 from app.tenancy.service import TenantService
-from app.core.config import settings
+# from app.core.config import settings
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +19,8 @@ def create_tenant(slug: str, name: str, email: str = None):
     """Create a new tenant"""
     
     # Initialize database
-    init_db(settings.DATABASE_URL)
+    # init_db(settings.TEST_DB_URL)
+    init_db("postgresql://postgres:postgres@localhost:5433/agenticbase")
     db = get_session()
     
     try:

@@ -133,6 +133,35 @@ async def delete_agent(
     db.commit()
 
 
+# @router.post("/{agent_id}/execute")
+# async def execute_agent(
+#     agent_id: int,
+#     input_data: dict,
+#     db: Session = Depends(get_db),
+#     current_user: TokenData = Depends(get_current_user)
+# ):
+#     """
+#     Execute an agent
+    
+#     This is a placeholder - implement actual execution logic
+#     """
+#     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
+    
+#     if not agent:
+#         raise NotFoundException(f"Agent with ID {agent_id} not found")
+    
+#     if not agent.active:
+#         raise BadRequestException(f"Agent '{agent.name}' is not active")
+    
+#     # TODO: Implement actual agent execution using LangGraph
+#     return {
+#         "status": "executed",
+#         "agent_id": agent_id,
+#         "agent_name": agent.name,
+#         "input": input_data,
+#         "output": {"message": "Execution placeholder - implement actual logic"}
+#     }
+
 @router.post("/{agent_id}/execute")
 async def execute_agent(
     agent_id: int,
@@ -140,24 +169,11 @@ async def execute_agent(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user)
 ):
-    """
-    Execute an agent
+    from app.langgraph.executor import LangGraphExecutor
     
-    This is a placeholder - implement actual execution logic
-    """
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
+    if not agent or not agent.active:
+        raise HTTPException(400, "Agent not found or inactive")
     
-    if not agent:
-        raise NotFoundException(f"Agent with ID {agent_id} not found")
-    
-    if not agent.active:
-        raise BadRequestException(f"Agent '{agent.name}' is not active")
-    
-    # TODO: Implement actual agent execution using LangGraph
-    return {
-        "status": "executed",
-        "agent_id": agent_id,
-        "agent_name": agent.name,
-        "input": input_data,
-        "output": {"message": "Execution placeholder - implement actual logic"}
-    }
+    executor = LangGraphExecutor(db)
+    return await executor.execute(agent_id, input_data, current_user.sub)

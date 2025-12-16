@@ -48,6 +48,10 @@ from app.admin.routes import router as admin_router
 # Existing imports
 from app.api.v1 import agents, hitl, health, users
 
+#ag-ui imports
+
+from app.agui.server import create_agui_router
+
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -104,6 +108,10 @@ app.include_router(admin_router, tags=["Admin"])
 app.include_router(agents.router, prefix=settings.API_PREFIX, tags=["agents"])
 app.include_router(hitl.router, prefix=settings.API_PREFIX, tags=["hitl"])
 app.include_router(users.router, prefix=settings.API_PREFIX, tags=["users"])
+
+#ag-ui-routers
+
+app.include_router(create_agui_router(), tags=["AG-UI"])
 
 @app.on_event("startup")
 async def startup_event():
