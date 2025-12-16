@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Database
+*.sqlite
+*.db
+postgres-data/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+agentic-ai-platform-v1.3-complete/backend/venv
+agentic-ai-platform-v1.3-complete/frontend/react-admin/node_modules
