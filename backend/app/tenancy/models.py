@@ -30,7 +30,8 @@ class Tenant(Base):
     """
     __tablename__ = "tenants"
     __table_args__ = {"schema": "public"}
-    
+    #tenant related data for users
+    # users = relationship("UserTenant", backref="tenant", cascade="all, delete")
     # Primary identifiers
     slug = Column(String(100), primary_key=True, index=True)
     schema_name = Column(String(100), unique=True, nullable=False, index=True)

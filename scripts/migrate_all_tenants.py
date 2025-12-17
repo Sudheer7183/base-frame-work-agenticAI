@@ -11,8 +11,13 @@ from alembic import command
 from alembic.config import Config
 from app.tenancy.db import init_db, get_session
 from app.tenancy.models import Tenant, TenantStatus
-from app.core.config import settings
+# from app.core.config import settings
 import logging
+
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent  # adjust if needed
+BACKEND_DIR = BASE_DIR / "backend"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,13 +27,21 @@ def migrate_all_tenants():
     """Run migrations for all active tenants"""
     
     # Initialize database
-    init_db(settings.DATABASE_URL)
+    # init_db(settings.DATABASE_URL)
+    init_db("postgresql://postgres:postgres@localhost:5433/agenticbase")
+
     db = get_session()
     
     try:
         # First, migrate public schema (tenant registry)
         logger.info("Migrating public schema...")
-        alembic_cfg = Config("alembic.ini")
+        # alembic_cfg = Config("D:/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/alembic.ini")
+        alembic_cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+
+        alembic_cfg.set_main_option(
+            "script_location",
+            str(BACKEND_DIR / "alembic")
+        )
         alembic_cfg.set_main_option("schema", "public")
         command.upgrade(alembic_cfg, "head")
         logger.info("Public schema migrated successfully")
@@ -42,7 +55,13 @@ def migrate_all_tenants():
             logger.info(f"Migrating tenant: {tenant.slug} ({tenant.schema_name})")
             
             try:
-                alembic_cfg = Config("alembic.ini")
+                # alembic_cfg = Config("D:/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/alembic.ini")
+                alembic_cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+
+                alembic_cfg.set_main_option(
+                    "script_location",
+                    str(BACKEND_DIR / "alembic")
+                )
                 alembic_cfg.set_main_option("schema", tenant.schema_name)
                 command.upgrade(alembic_cfg, "head")
                 logger.info(f"Successfully migrated: {tenant.slug}")

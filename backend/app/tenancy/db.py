@@ -42,6 +42,7 @@ def init_db(database_url: str, **engine_kwargs) -> Engine:
         "pool_recycle": 3600,
         "echo": False,
         "poolclass": pool.QueuePool,
+        "isolation_level":"AUTOCOMMIT"
     }
     
     # Merge with provided config
@@ -81,45 +82,57 @@ def setup_search_path_listener(engine: Engine) -> None:
     This ensures all queries run in the correct tenant schema
     """
     
+    # @event.listens_for(engine, "connect")
+    # def set_search_path(dbapi_conn, connection_record):
+    #     """Set search_path when connection is established"""
+    #     tenant_schema = get_tenant()
+        
+    #     if not tenant_schema:
+    #         # No tenant in context - use public schema only
+    #         return
+        
+    #     # Validate schema name before using it
+    #     try:
+    #         validate_schema_name(tenant_schema)
+    #     except InvalidTenantError as e:
+    #         logger.error(f"Invalid tenant schema in context: {tenant_schema}")
+    #         raise
+        
+    #     # Measure performance
+    #     start_time = time.time()
+        
+    #     # Set search_path using parameter binding for safety
+    #     cursor = dbapi_conn.cursor()
+    #     try:
+    #         # Use format with identifier quoting for safety
+    #         cursor.execute(
+    #             f'SET search_path TO "{tenant_schema}", public'
+    #         )
+            
+    #         duration = time.time() - start_time
+            
+    #         if duration > 0.1:
+    #             logger.warning(
+    #                 f"Slow search_path switch: {duration:.3f}s for tenant {tenant_schema}"
+    #             )
+    #         else:
+    #             logger.debug(
+    #                 f"Search path set to {tenant_schema} in {duration:.3f}s"
+    #             )
+    #     finally:
+    #         cursor.close()
+
     @event.listens_for(engine, "connect")
     def set_search_path(dbapi_conn, connection_record):
-        """Set search_path when connection is established"""
         tenant_schema = get_tenant()
-        
+
         if not tenant_schema:
-            # No tenant in context - use public schema only
             return
-        
-        # Validate schema name before using it
-        try:
-            validate_schema_name(tenant_schema)
-        except InvalidTenantError as e:
-            logger.error(f"Invalid tenant schema in context: {tenant_schema}")
-            raise
-        
-        # Measure performance
-        start_time = time.time()
-        
-        # Set search_path using parameter binding for safety
+
         cursor = dbapi_conn.cursor()
-        try:
-            # Use format with identifier quoting for safety
-            cursor.execute(
-                f'SET search_path TO "{tenant_schema}", public'
-            )
-            
-            duration = time.time() - start_time
-            
-            if duration > 0.1:
-                logger.warning(
-                    f"Slow search_path switch: {duration:.3f}s for tenant {tenant_schema}"
-                )
-            else:
-                logger.debug(
-                    f"Search path set to {tenant_schema} in {duration:.3f}s"
-                )
-        finally:
-            cursor.close()
+        cursor.execute(
+            f'SET search_path TO "{tenant_schema}", public'
+        )
     
     @event.listens_for(engine, "checkin")
     def reset_search_path(dbapi_conn, connection_record):

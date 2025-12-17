@@ -42,7 +42,7 @@ async def list_agents(
 async def create_agent(
     agent_data: AgentCreate,
     db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user)
+    # current_user: TokenData = Depends(get_current_user)
 ):
     """
     Create a new agent
@@ -61,7 +61,8 @@ async def create_agent(
         workflow=agent_data.workflow,
         config=agent_data.config or {},
         active=agent_data.active,
-        created_by=current_user.sub if hasattr(current_user, 'sub') else None
+        # created_by=current_user.sub if hasattr(current_user, 'sub') else None
+        created_by=None
     )
     
     db.add(agent)

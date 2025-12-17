@@ -82,3 +82,5 @@ slowapi==0.1.9
 
 # Note: Streamlit is separate and installed in frontend/streamlit-hitl
 # streamlit==1.32.2
+
+passlib[bcrypt]
