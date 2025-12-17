@@ -118,7 +118,7 @@ async def change_own_password(
 # User Management Endpoints (Admin)
 # ============================================================================
 
-@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/create", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
     tenant: Tenant = Depends(get_current_tenant),

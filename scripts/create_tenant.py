@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_tenant(slug: str, name: str, email: str = None):
-    init_db("postgresql://postgres:postgres@localhost:5433/agenticbase")
+    init_db("postgresql://postgres:postgres@localhost:5433/agenticbase2")
     db = get_session()
 
     try:
