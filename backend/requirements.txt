@@ -1,0 +1,86 @@
+# =============================================================================
+# Agentic AI Platform Base v1.2 - Python Dependencies
+# =============================================================================
+
+# Web Framework
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+
+# Database
+sqlalchemy==2.0.29
+psycopg2-binary==2.9.9
+alembic==1.13.1
+asyncpg==0.29.0  # For async database support
+
+# Pydantic & Settings
+pydantic==2.6.4
+pydantic-settings==2.2.1
+email-validator==2.1.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+httpx==0.27.0
+
+# LangGraph & AI
+langgraph
+langchain
+langchain-core
+
+# Redis & Caching
+redis==5.0.3
+hiredis==2.3.2
+
+# Monitoring & Logging
+python-json-logger==2.0.7
+prometheus-client==0.20.0
+sentry-sdk[fastapi]==1.43.0
+opentelemetry-api==1.23.0
+opentelemetry-sdk==1.23.0
+opentelemetry-instrumentation-fastapi==0.44b0
+
+# HTTP Client
+requests==2.31.0
+aiohttp==3.9.3
+
+# Data Validation & Serialization
+marshmallow==3.21.1
+pydantic-extra-types==2.6.0
+
+# Task Queue (optional)
+celery==5.3.6
+kombu==5.3.5
+
+# Email
+aiosmtplib==3.0.1
+jinja2==3.1.3
+
+# Utilities
+python-dateutil==2.9.0
+pytz==2024.1
+tenacity==8.2.3
+click==8.1.7
+
+# File Processing
+python-magic==0.4.27
+openpyxl==3.1.2
+pandas==2.2.1
+PyPDF2==3.0.1
+
+# API Documentation
+fastapi-pagination==0.12.20
+
+# Rate Limiting
+slowapi==0.1.9
+
+# Testing (optional, moved to requirements-dev.txt)
+# pytest==8.1.1
+# pytest-asyncio==0.23.6
+# pytest-cov==4.1.0
+# httpx==0.27.0
+
+# Note: Streamlit is separate and installed in frontend/streamlit-hitl
+# streamlit==1.32.2
+
+passlib[bcrypt]
