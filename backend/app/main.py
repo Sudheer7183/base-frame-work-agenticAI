@@ -51,6 +51,8 @@ from app.api.v1 import agents, hitl, health, users
 #ag-ui imports
 
 from app.agui.server import create_agui_router
+from app.core.security import get_current_user  # Use enhanced version
+from app.keycloak.service import get_keycloak_service
 
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
@@ -113,19 +115,31 @@ app.include_router(users.router, prefix=settings.API_PREFIX, tags=["users"])
 
 app.include_router(create_agui_router(), tags=["AG-UI"])
 
+# @app.on_event("startup")
+# async def startup_event():
+#     """Run on application startup."""
+#     logger.info("Starting Agentic AI Platform (Multi-Tenant)...")
+    
+#     # Initialize database connections
+#     if not check_db_connection():
+#         raise RuntimeError("Database connection failed")
+    
+#     # Initialize tenant database
+#     init_tenant_db(settings.DB_URL)
+    
+#     logger.info("Platform started successfully")
+
 @app.on_event("startup")
-async def startup_event():
-    """Run on application startup."""
-    logger.info("Starting Agentic AI Platform (Multi-Tenant)...")
+async def startup():
+    """Initialize Keycloak connection on startup"""
+    keycloak = get_keycloak_service()
     
-    # Initialize database connections
-    if not check_db_connection():
-        raise RuntimeError("Database connection failed")
-    
-    # Initialize tenant database
-    init_tenant_db(settings.DB_URL)
-    
-    logger.info("Platform started successfully")
+    # Verify connection
+    try:
+        await keycloak.get_admin_token()
+        logger.info("✓ Keycloak connection established")
+    except Exception as e:
+        logger.error(f"✗ Keycloak connection failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
