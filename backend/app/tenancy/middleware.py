@@ -58,7 +58,17 @@ class TenantMiddleware(BaseHTTPMiddleware):
             resolver = TenantResolver(db)
             
             # Get JWT payload if available (set by auth middleware)
-            jwt_payload = getattr(request.state, "user", None)
+            # jwt_payload = getattr(request.state, "user", None)
+            auth_header = request.headers.get("Authorization")
+            jwt_payload = None
+            if auth_header and auth_header.startswith("Bearer "):
+                try:
+                    import jwt
+                    token = auth_header.split(" ")[1]
+                    # Decode without verification just for tenant resolution
+                    jwt_payload = jwt.decode(token, options={"verify_signature": False})
+                except Exception:
+                    jwt_payload = None
             
             # Resolve tenant
             tenant = resolver.resolve(request, jwt_payload)

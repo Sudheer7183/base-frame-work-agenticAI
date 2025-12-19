@@ -91,12 +91,10 @@ app.add_middleware(
 app.add_middleware(
     TenantMiddleware,
     exempt_paths={
-        "/health",
+        "/api/v1/health",
         "/docs",
         "/redoc",
         "/openapi.json",
-        "/platform/tenants",  # Tenant management
-        "/admin",             # Admin interface
     }
 )
 
@@ -129,17 +127,46 @@ app.include_router(create_agui_router(), tags=["AG-UI"])
     
 #     logger.info("Platform started successfully")
 
-@app.on_event("startup")
-async def startup():
-    """Initialize Keycloak connection on startup"""
-    keycloak = get_keycloak_service()
+# @app.on_event("startup")
+# async def startup():
+#     """Initialize Keycloak connection on startup"""
+#     keycloak = get_keycloak_service()
     
-    # Verify connection
+#     # Verify connection
+#     try:
+#         await keycloak.get_admin_token()
+#         logger.info("✓ Keycloak connection established")
+#     except Exception as e:
+#         logger.error(f"✗ Keycloak connection failed: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Agentic AI Platform (Multi-Tenant)...")
+
+    # 1️⃣ Initialize Tenant Database FIRST
     try:
+        print("setting db url at main",settings.DB_URL)
+        init_tenant_db(settings.DB_URL)
+        logger.info("✓ Tenant database initialized")
+    except Exception as e:
+        logger.error(f"✗ Tenant DB initialization failed: {e}")
+        raise
+
+    # 2️⃣ Optional: Check DB connectivity
+    if not check_db_connection():
+        raise RuntimeError("Database connection check failed")
+
+    # 3️⃣ Initialize Keycloak
+    try:
+        keycloak = get_keycloak_service()
         await keycloak.get_admin_token()
         logger.info("✓ Keycloak connection established")
     except Exception as e:
         logger.error(f"✗ Keycloak connection failed: {e}")
+        raise
+
+    logger.info("✓ Platform startup complete")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_user, get_admin_user, TokenData
+from app.core.security import get_current_user, get_admin_user, TokenData,get_super_admin_user
 from app.core.exceptions import NotFoundException, BadRequestException, ConflictException
 from app.models.user import User
 from app.schemas.user import (
@@ -20,7 +20,7 @@ from app.schemas.user import (
 from app.services.user_service import UserService
 from app.tenancy.dependencies import get_current_tenant
 from app.tenancy.models import Tenant
-
+from app.core.security import require_role, Role
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
@@ -89,6 +89,8 @@ async def update_current_user(
     return UserResponse(**updated_user.to_dict())
 
 
+
+
 @router.post("/me/change-password", response_model=UserResponse)
 async def change_own_password(
     password_data: PasswordChange,
@@ -145,6 +147,18 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.post("", response_model=UserResponse, status_code=201)
+async def create_user_alias(
+    user_data: UserCreate,
+    tenant: Tenant = Depends(get_current_tenant),
+    admin: TokenData = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    service = UserService(db)
+    user = service.create_user(user_data, tenant.slug)
+    return UserResponse(**user.to_dict())
 
 
 @router.post("/invite", response_model=UserResponse)

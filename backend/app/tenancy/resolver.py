@@ -57,18 +57,17 @@ class TenantResolver:
         
         # 2. Try X-Tenant-ID header (for internal tools/testing)
         if not tenant_identifier:
-            tenant_identifier = request.headers.get("X-Tenant-ID")
-            if tenant_identifier:
-                source = "header"
-                logger.info(f"Tenant resolved from header: {tenant_identifier}")
-        
-        # 3. Try subdomain (optional)
+                # Check for both common header keys
+                tenant_identifier = request.headers.get("X-Tenant-ID") or request.headers.get("X-Tenant-Slug")
+                if tenant_identifier:
+                    source = "header"
+    
+        # 3. Try subdomain
         if not tenant_identifier:
             tenant_identifier = self._extract_from_subdomain(request)
             if tenant_identifier:
                 source = "subdomain"
-                logger.info(f"Tenant resolved from subdomain: {tenant_identifier}")
-        
+
         if not tenant_identifier:
             logger.error("No tenant identifier found in request")
             raise TenantNotFoundError("No tenant identifier provided")

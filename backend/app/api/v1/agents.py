@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
-from app.core.security import get_current_user, TokenData
+from app.core.security import get_current_user, get_admin_user, TokenData,get_super_admin_user
 from app.core.exceptions import NotFoundException, BadRequestException
 from app.models.agent import AgentConfig
 from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
-
+from app.core.security import require_role, Role
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
 
@@ -20,7 +20,7 @@ async def list_agents(
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user)
+    current_user: TokenData = Depends(get_admin_user)
 ):
     """
     List all agents
@@ -42,7 +42,7 @@ async def list_agents(
 async def create_agent(
     agent_data: AgentCreate,
     db: Session = Depends(get_db),
-    # current_user: TokenData = Depends(get_current_user)
+    current_user: TokenData = Depends(get_admin_user)
 ):
     """
     Create a new agent
@@ -61,8 +61,8 @@ async def create_agent(
         workflow=agent_data.workflow,
         config=agent_data.config or {},
         active=agent_data.active,
-        # created_by=current_user.sub if hasattr(current_user, 'sub') else None
-        created_by=None
+        created_by=current_user.sub if hasattr(current_user, 'sub') else None
+        # created_by=None
     )
     
     db.add(agent)
@@ -76,7 +76,7 @@ async def create_agent(
 async def get_agent(
     agent_id: int,
     db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user)
+    current_user: TokenData = Depends(require_role(Role.USER))
 ):
     """Get agent by ID"""
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
@@ -92,7 +92,7 @@ async def update_agent(
     agent_id: int,
     agent_data: AgentUpdate,
     db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user)
+    current_user: TokenData = Depends(get_admin_user)
 ):
     """Update agent configuration"""
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
@@ -122,7 +122,7 @@ async def update_agent(
 async def delete_agent(
     agent_id: int,
     db: Session = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user)
+    current_user: TokenData = Depends(get_admin_user)
 ):
     """Delete an agent"""
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()

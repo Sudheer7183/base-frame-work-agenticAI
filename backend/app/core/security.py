@@ -352,18 +352,322 @@
 #     return True
 
 
-"""
-Enhanced security module with production-ready Keycloak integration
+# """
+# Enhanced security module with production-ready Keycloak integration
 
-Place this as: backend/app/core/security_enhanced.py
-Or replace backend/app/core/security.py
+# Place this as: backend/app/core/security_enhanced.py
+# Or replace backend/app/core/security.py
+# """
+
+# from typing import Optional, List
+# from datetime import datetime
+# import logging
+
+# from fastapi import Depends, HTTPException, status, Request,Security
+# from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+# from pydantic import BaseModel
+
+# from app.core.config import settings
+# from app.core.exceptions import UnauthorizedException, ForbiddenException
+# from app.keycloak.service import get_keycloak_service
+
+# logger = logging.getLogger(__name__)
+
+# security = HTTPBearer(auto_error=False)
+
+
+
+# class Role:
+#     """Define user roles"""
+#     SUPER_ADMIN = "SUPER_ADMIN"
+#     ADMIN = "ADMIN"
+#     USER = "USER"
+#     VIEWER = "VIEWER"
+    
+#     @classmethod
+#     def all_roles(cls) -> List[str]:
+#         return [cls.SUPER_ADMIN, cls.ADMIN, cls.USER, cls.VIEWER]
+    
+#     @classmethod
+#     def admin_roles(cls) -> List[str]:
+#         return [cls.SUPER_ADMIN, cls.ADMIN]
+
+
+# class TokenData(BaseModel):
+#     """Parsed token data with multi-tenant support"""
+#     sub: str  # User ID (Keycloak ID)
+#     email: Optional[str] = None
+#     username: Optional[str] = None
+#     tenant: Optional[str] = None  # Tenant slug from token
+#     roles: List[str] = []
+#     permissions: List[str] = []
+#     exp: Optional[datetime] = None
+    
+#     def has_role(self, role: str) -> bool:
+#         """Check if user has specific role"""
+#         return role in self.roles
+    
+#     def has_any_role(self, roles: List[str]) -> bool:
+#         """Check if user has any of the specified roles"""
+#         return any(role in self.roles for role in roles)
+    
+#     def is_admin(self) -> bool:
+#         """Check if user is admin or super admin"""
+#         return self.has_any_role(Role.admin_roles())
+    
+#     def is_super_admin(self) -> bool:
+#         """Check if user is super admin"""
+#         return self.has_role(Role.SUPER_ADMIN)
+    
+#     def has_tenant_access(self, tenant_slug: str) -> bool:
+#         """Check if user has access to specific tenant"""
+#         if self.is_super_admin():
+#             return True  # Super admin has access to all tenants
+#         return self.tenant == tenant_slug
+    
+#     def has_permission(self, permission: str) -> bool:
+#         """Check if user has specific permission"""
+#         return permission in self.permissions
+
+
+# async def get_current_user(
+#     request: Request,
+#     credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+# ) -> TokenData:
+#     """
+#     Extract and validate current user from JWT token
+    
+#     Args:
+#         request: FastAPI request (for tenant context)
+#         credentials: HTTP Bearer token credentials
+        
+#     Returns:
+#         TokenData: Parsed token data with user info
+        
+#     Raises:
+#         UnauthorizedException: If token is missing or invalid
+#     """
+#     if not credentials:
+#         raise UnauthorizedException("Authentication required")
+    
+#     try:
+#         # Get Keycloak service
+#         keycloak = get_keycloak_service()
+        
+#         # Get expected tenant from request (set by tenant middleware)
+#         expected_tenant = getattr(request.state, "tenant", None)
+#         tenant_slug = expected_tenant.slug if expected_tenant else None
+        
+#         # Verify token with tenant validation
+#         payload = await keycloak.verify_token(
+#             credentials.credentials,
+#             tenant_slug=tenant_slug if tenant_slug else None
+#         )
+        
+#         # Extract user data
+#         sub = payload.get("sub")
+#         if not sub:
+#             raise UnauthorizedException("Invalid token: missing subject")
+        
+#         email = payload.get("email")
+#         username = payload.get("preferred_username")
+        
+#         # Extract tenant from custom attribute
+#         tenant = None
+#         if "tenant" in payload:
+#             tenant = payload["tenant"]
+#         elif "attributes" in payload and "tenant" in payload["attributes"]:
+#             tenant = payload["attributes"]["tenant"]
+#             if isinstance(tenant, list):
+#                 tenant = tenant[0] if tenant else None
+        
+#         # Extract roles from token
+#         roles = []
+        
+#         # Realm roles
+#         realm_access = payload.get("realm_access", {})
+#         roles.extend(realm_access.get("roles", []))
+        
+#         # Client roles
+#         resource_access = payload.get("resource_access", {})
+#         client_roles = resource_access.get(settings.KEYCLOAK_CLIENT_ID, {})
+#         roles.extend(client_roles.get("roles", []))
+        
+#         # Extract permissions (if using authorization services)
+#         permissions = []
+#         authorization = payload.get("authorization", {})
+#         permissions.extend(authorization.get("permissions", []))
+        
+#         # Parse expiration
+#         exp = None
+#         if "exp" in payload:
+#             exp = datetime.fromtimestamp(payload["exp"])
+        
+#         return TokenData(
+#             sub=sub,
+#             email=email,
+#             username=username,
+#             tenant=tenant,
+#             roles=roles,
+#             permissions=permissions,
+#             exp=exp,
+#         )
+    
+#     except UnauthorizedException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Authentication failed: {e}", exc_info=True)
+#         raise UnauthorizedException("Authentication failed")
+
+
+# async def get_current_active_user(
+#     current_user: TokenData = Depends(get_current_user)
+# ) -> TokenData:
+#     """
+#     Get current active user (additional validation can be added here)
+    
+#     Args:
+#         current_user: Current authenticated user
+        
+#     Returns:
+#         TokenData: Validated active user
+#     """
+#     # Add additional checks here (e.g., is_active from database)
+#     return current_user
+
+
+# async def require_tenant_access(
+#     tenant_slug: str,
+#     current_user: TokenData = Depends(get_current_user)
+# ) -> TokenData:
+#     """
+#     Require user to have access to specific tenant
+    
+#     Args:
+#         tenant_slug: Required tenant slug
+#         current_user: Current authenticated user
+        
+#     Returns:
+#         TokenData: User with verified tenant access
+        
+#     Raises:
+#         ForbiddenException: If user doesn't have access to tenant
+#     """
+#     if not current_user.has_tenant_access(tenant_slug):
+#         raise ForbiddenException(
+#             f"Access denied: User does not have access to tenant '{tenant_slug}'"
+#         )
+#     return current_user
+
+
+# def require_role(required_role: str):
+#     """
+#     Decorator to enforce role-based access control
+    
+#     Args:
+#         required_role: Role required to access the endpoint
+        
+#     Example:
+#         @router.get("/admin")
+#         @require_role(Role.ADMIN)
+#         async def admin_endpoint(user: TokenData = Depends(get_current_user)):
+#             return {"message": "Admin access granted"}
+#     """
+#     async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+#         if not current_user.has_role(required_role):
+#             raise ForbiddenException(
+#                 f"Role '{required_role}' required for this operation"
+#             )
+#         return current_user
+    
+#     return dependency
+
+
+# def require_any_role(required_roles: List[str]):
+#     """
+#     Decorator to enforce role-based access control (any of roles)
+    
+#     Args:
+#         required_roles: List of roles, user must have at least one
+        
+#     Example:
+#         @router.get("/admin")
+#         @require_any_role([Role.ADMIN, Role.SUPER_ADMIN])
+#         async def admin_endpoint(user: TokenData = Depends(get_current_user)):
+#             return {"message": "Admin access granted"}
+#     """
+#     async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+#         if not current_user.has_any_role(required_roles):
+#             raise ForbiddenException(
+#                 f"One of roles {required_roles} required for this operation"
+#             )
+#         return current_user
+    
+#     return dependency
+
+
+# def require_permission(permission: str):
+#     """
+#     Decorator to enforce permission-based access control
+    
+#     Args:
+#         permission: Permission required to access the endpoint
+        
+#     Example:
+#         @router.post("/users")
+#         @require_permission("users:create")
+#         async def create_user(user: TokenData = Depends(get_current_user)):
+#             return {"message": "User created"}
+#     """
+#     async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+#         if not current_user.has_permission(permission):
+#             raise ForbiddenException(
+#                 f"Permission '{permission}' required for this operation"
+#             )
+#         return current_user
+    
+#     return dependency
+
+
+# # Convenience dependencies for common use cases
+# async def get_admin_user(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+#     """
+#     Dependency to ensure user is admin or super admin
+    
+#     Example:
+#         @router.get("/admin/stats")
+#         async def get_stats(user: TokenData = Depends(get_admin_user)):
+#             return {"stats": "..."}
+#     """
+#     if not current_user.is_admin():
+#         raise ForbiddenException("Admin access required")
+#     return current_user
+
+
+# async def get_super_admin_user(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+#     """
+#     Dependency to ensure user is super admin
+    
+#     Example:
+#         @router.delete("/tenants/{slug}")
+#         async def delete_tenant(user: TokenData = Depends(get_super_admin_user)):
+#             return {"message": "Tenant deleted"}
+#     """
+#     if not current_user.is_super_admin():
+#         raise ForbiddenException("Super admin access required")
+#     return current_user
+
+"""
+Enhanced security module with proper RBAC enforcement
+
+Place this at: backend/app/core/security.py
 """
 
 from typing import Optional, List
 from datetime import datetime
 import logging
 
-from fastapi import Depends, HTTPException, status, Request,Security
+from fastapi import Depends, HTTPException, status, Request, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -373,7 +677,7 @@ from app.keycloak.service import get_keycloak_service
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-error, we'll handle it
 
 
 class Role:
@@ -417,16 +721,6 @@ class TokenData(BaseModel):
     def is_super_admin(self) -> bool:
         """Check if user is super admin"""
         return self.has_role(Role.SUPER_ADMIN)
-    
-    def has_tenant_access(self, tenant_slug: str) -> bool:
-        """Check if user has access to specific tenant"""
-        if self.is_super_admin():
-            return True  # Super admin has access to all tenants
-        return self.tenant == tenant_slug
-    
-    def has_permission(self, permission: str) -> bool:
-        """Check if user has specific permission"""
-        return permission in self.permissions
 
 
 async def get_current_user(
@@ -436,17 +730,10 @@ async def get_current_user(
     """
     Extract and validate current user from JWT token
     
-    Args:
-        request: FastAPI request (for tenant context)
-        credentials: HTTP Bearer token credentials
-        
-    Returns:
-        TokenData: Parsed token data with user info
-        
-    Raises:
-        UnauthorizedException: If token is missing or invalid
+    This is the main authentication dependency
     """
     if not credentials:
+        logger.warning("No credentials provided")
         raise UnauthorizedException("Authentication required")
     
     try:
@@ -457,10 +744,10 @@ async def get_current_user(
         expected_tenant = getattr(request.state, "tenant", None)
         tenant_slug = expected_tenant.slug if expected_tenant else None
         
-        # Verify token with tenant validation
+        # Verify token (skip tenant validation for now - we'll do it separately)
         payload = await keycloak.verify_token(
             credentials.credentials,
-            tenant_slug=tenant_slug
+            tenant_slug=None  # Don't validate tenant in token verification
         )
         
         # Extract user data
@@ -492,7 +779,7 @@ async def get_current_user(
         client_roles = resource_access.get(settings.KEYCLOAK_CLIENT_ID, {})
         roles.extend(client_roles.get("roles", []))
         
-        # Extract permissions (if using authorization services)
+        # Extract permissions
         permissions = []
         authorization = payload.get("authorization", {})
         permissions.extend(authorization.get("permissions", []))
@@ -502,7 +789,7 @@ async def get_current_user(
         if "exp" in payload:
             exp = datetime.fromtimestamp(payload["exp"])
         
-        return TokenData(
+        token_data = TokenData(
             sub=sub,
             email=email,
             username=username,
@@ -511,6 +798,10 @@ async def get_current_user(
             permissions=permissions,
             exp=exp,
         )
+        
+        logger.debug(f"User authenticated: {email}, roles: {roles}")
+        
+        return token_data
     
     except UnauthorizedException:
         raise
@@ -519,61 +810,57 @@ async def get_current_user(
         raise UnauthorizedException("Authentication failed")
 
 
-async def get_current_active_user(
+# Convenience dependency for requiring authentication without role checks
+get_current_active_user = get_current_user
+
+
+async def get_admin_user(
     current_user: TokenData = Depends(get_current_user)
 ) -> TokenData:
     """
-    Get current active user (additional validation can be added here)
+    Require admin or super admin role
     
-    Args:
-        current_user: Current authenticated user
-        
-    Returns:
-        TokenData: Validated active user
+    Use this as a dependency on endpoints that need admin access
     """
-    # Add additional checks here (e.g., is_active from database)
+    if not current_user.is_admin():
+        logger.warning(
+            f"User {current_user.email} attempted admin access with roles: {current_user.roles}"
+        )
+        raise ForbiddenException("Admin access required")
     return current_user
 
 
-async def require_tenant_access(
-    tenant_slug: str,
+async def get_super_admin_user(
     current_user: TokenData = Depends(get_current_user)
 ) -> TokenData:
     """
-    Require user to have access to specific tenant
+    Require super admin role
     
-    Args:
-        tenant_slug: Required tenant slug
-        current_user: Current authenticated user
-        
-    Returns:
-        TokenData: User with verified tenant access
-        
-    Raises:
-        ForbiddenException: If user doesn't have access to tenant
+    Use this for platform-level operations
     """
-    if not current_user.has_tenant_access(tenant_slug):
-        raise ForbiddenException(
-            f"Access denied: User does not have access to tenant '{tenant_slug}'"
+    if not current_user.is_super_admin():
+        logger.warning(
+            f"User {current_user.email} attempted super admin access with roles: {current_user.roles}"
         )
+        raise ForbiddenException("Super admin access required")
     return current_user
 
 
 def require_role(required_role: str):
     """
-    Decorator to enforce role-based access control
+    Create a dependency that requires a specific role
     
-    Args:
-        required_role: Role required to access the endpoint
-        
-    Example:
-        @router.get("/admin")
-        @require_role(Role.ADMIN)
-        async def admin_endpoint(user: TokenData = Depends(get_current_user)):
-            return {"message": "Admin access granted"}
+    Usage:
+        @router.get("/endpoint")
+        async def endpoint(user: TokenData = Depends(require_role(Role.ADMIN))):
+            ...
     """
     async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
         if not current_user.has_role(required_role):
+            logger.warning(
+                f"User {current_user.email} missing required role {required_role}. "
+                f"Has: {current_user.roles}"
+            )
             raise ForbiddenException(
                 f"Role '{required_role}' required for this operation"
             )
@@ -584,74 +871,24 @@ def require_role(required_role: str):
 
 def require_any_role(required_roles: List[str]):
     """
-    Decorator to enforce role-based access control (any of roles)
+    Create a dependency that requires any of the specified roles
     
-    Args:
-        required_roles: List of roles, user must have at least one
-        
-    Example:
-        @router.get("/admin")
-        @require_any_role([Role.ADMIN, Role.SUPER_ADMIN])
-        async def admin_endpoint(user: TokenData = Depends(get_current_user)):
-            return {"message": "Admin access granted"}
+    Usage:
+        @router.get("/endpoint")
+        async def endpoint(
+            user: TokenData = Depends(require_any_role([Role.ADMIN, Role.USER]))
+        ):
+            ...
     """
     async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
         if not current_user.has_any_role(required_roles):
+            logger.warning(
+                f"User {current_user.email} missing required roles {required_roles}. "
+                f"Has: {current_user.roles}"
+            )
             raise ForbiddenException(
                 f"One of roles {required_roles} required for this operation"
             )
         return current_user
     
     return dependency
-
-
-def require_permission(permission: str):
-    """
-    Decorator to enforce permission-based access control
-    
-    Args:
-        permission: Permission required to access the endpoint
-        
-    Example:
-        @router.post("/users")
-        @require_permission("users:create")
-        async def create_user(user: TokenData = Depends(get_current_user)):
-            return {"message": "User created"}
-    """
-    async def dependency(current_user: TokenData = Depends(get_current_user)) -> TokenData:
-        if not current_user.has_permission(permission):
-            raise ForbiddenException(
-                f"Permission '{permission}' required for this operation"
-            )
-        return current_user
-    
-    return dependency
-
-
-# Convenience dependencies for common use cases
-async def get_admin_user(current_user: TokenData = Depends(get_current_user)) -> TokenData:
-    """
-    Dependency to ensure user is admin or super admin
-    
-    Example:
-        @router.get("/admin/stats")
-        async def get_stats(user: TokenData = Depends(get_admin_user)):
-            return {"stats": "..."}
-    """
-    if not current_user.is_admin():
-        raise ForbiddenException("Admin access required")
-    return current_user
-
-
-async def get_super_admin_user(current_user: TokenData = Depends(get_current_user)) -> TokenData:
-    """
-    Dependency to ensure user is super admin
-    
-    Example:
-        @router.delete("/tenants/{slug}")
-        async def delete_tenant(user: TokenData = Depends(get_super_admin_user)):
-            return {"message": "Tenant deleted"}
-    """
-    if not current_user.is_super_admin():
-        raise ForbiddenException("Super admin access required")
-    return current_user

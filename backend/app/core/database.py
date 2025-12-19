@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, event, pool, text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 import logging
-
+from fastapi import Request
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -55,28 +55,54 @@ def receive_checkin(dbapi_conn, connection_record):
     logger.debug("Connection returned to pool")
 
 
-def get_db() -> Generator[Session, None, None]:
-    """
-    Dependency for FastAPI routes to get database session.
+# def get_db() -> Generator[Session, None, None]:
+#     """
+#     Dependency for FastAPI routes to get database session.
     
-    Yields:
-        Session: SQLAlchemy database session
+#     Yields:
+#         Session: SQLAlchemy database session
         
-    Example:
-        @app.get("/items")
-        def get_items(db: Session = Depends(get_db)):
-            return db.query(Item).all()
+#     Example:
+#         @app.get("/items")
+#         def get_items(db: Session = Depends(get_db)):
+#             return db.query(Item).all()
+#     """
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     except SQLAlchemyError as e:
+#         logger.error(f"Database error: {e}")
+#         db.rollback()
+#         raise
+#     finally:
+#         db.close()
+
+def get_db(request: Request) -> Generator[Session, None, None]:
     """
+    Multi-tenant aware database dependency.
+    Automatically sets search_path based on the resolved tenant.
+    """
+    # Extract tenant from request state (set by TenantMiddleware)
+    tenant = getattr(request.state, "tenant", None)
+    
     db = SessionLocal()
     try:
+        if tenant and hasattr(tenant, "schema_name"):
+            # Set the PostgreSQL search_path to the tenant's schema
+            # This ensures queries look in the correct isolated table
+            schema = tenant.schema_name
+            db.execute(text(f'SET search_path TO "{schema}", public'))
+            logger.debug(f"Database session switched to schema: {schema}")
+        else:
+            # Fallback to public if no tenant is found (e.g., global routes)
+            db.execute(text('SET search_path TO public'))
+            
         yield db
-    except SQLAlchemyError as e:
-        logger.error(f"Database error: {e}")
-        db.rollback()
+    except Exception as e:
+        logger.error(f"Error in database session: {e}")
         raise
     finally:
         db.close()
-
 
 @contextmanager
 def get_db_context() -> Generator[Session, None, None]:

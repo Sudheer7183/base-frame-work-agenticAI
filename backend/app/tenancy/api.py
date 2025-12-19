@@ -4,10 +4,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.orm import Session
+
 from .service import TenantService
 from .models import Tenant, TenantStatus
 from .dependencies import get_db
 from .exceptions import TenantError, InvalidTenantError, TenantNotFoundError
+
+# Import security dependencies to protect these endpoints
+from app.core.security import get_super_admin_user, TokenData
 
 router = APIRouter(prefix="/platform/tenants", tags=["Tenant Management"])
 
@@ -62,21 +66,19 @@ class TenantListResponse(BaseModel):
 
 
 # ============================================================================
-# API Endpoints
+# API Endpoints (Protected by Super Admin Role)
 # ============================================================================
 
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
 def create_tenant(
     tenant_data: TenantCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
     """
     Create a new tenant
     
-    This will:
-    1. Create a PostgreSQL schema
-    2. Run migrations
-    3. Register the tenant
+    Requires Super Admin privileges.
     """
     service = TenantService(db)
     
@@ -108,9 +110,10 @@ def create_tenant(
 @router.get("/{slug}", response_model=TenantResponse)
 def get_tenant(
     slug: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
-    """Get tenant by slug"""
+    """Get tenant by slug (Super Admin only)"""
     service = TenantService(db)
     
     try:
@@ -128,9 +131,10 @@ def list_tenants(
     status_filter: Optional[TenantStatus] = None,
     limit: int = 100,
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
-    """List all tenants"""
+    """List all tenants (Super Admin only)"""
     service = TenantService(db)
     
     tenants = service.list_tenants(status=status_filter, limit=limit, offset=offset)
@@ -147,9 +151,10 @@ def list_tenants(
 def update_tenant(
     slug: str,
     update_data: TenantUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
-    """Update tenant metadata"""
+    """Update tenant metadata (Super Admin only)"""
     service = TenantService(db)
     
     try:
@@ -175,9 +180,10 @@ def update_tenant(
 def suspend_tenant(
     slug: str,
     reason: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
-    """Suspend a tenant"""
+    """Suspend a tenant (Super Admin only)"""
     service = TenantService(db)
     
     try:
@@ -193,9 +199,10 @@ def suspend_tenant(
 @router.post("/{slug}/activate", response_model=TenantResponse)
 def activate_tenant(
     slug: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
-    """Activate a suspended tenant"""
+    """Activate a suspended tenant (Super Admin only)"""
     service = TenantService(db)
     
     try:
@@ -213,10 +220,11 @@ def deprovision_tenant(
     slug: str,
     delete_schema: bool = False,
     backup_first: bool = True,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user) #
 ):
     """
-    Deprovision a tenant
+    Deprovision a tenant (Super Admin only)
     
     WARNING: This is a destructive operation!
     """
