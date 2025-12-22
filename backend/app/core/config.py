@@ -199,6 +199,86 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+
+    # ------------------------------------------------------------------
+    # LLM provider Settings Config
+    # ------------------------------------------------------------------
+
+
+    LLM_DEFAULT_PROVIDER: str = Field(
+        default="ollama",
+        pattern="^(ollama|openai|anthropic)$",
+        description="Default LLM provider"
+    )
+    
+    # Ollama Configuration
+    OLLAMA_BASE_URL: str = Field(
+        default="http://localhost:11434",
+        description="Ollama API base URL"
+    )
+    OLLAMA_MODEL: str = Field(
+        default="llama2",
+        description="Default Ollama model"
+    )
+    OLLAMA_TIMEOUT: int = Field(
+        default=120,
+        ge=30,
+        le=600,
+        description="Ollama request timeout in seconds"
+    )
+    
+    # OpenAI Configuration
+    OPENAI_API_KEY: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key"
+    )
+    OPENAI_MODEL: str = Field(
+        default="gpt-4",
+        description="Default OpenAI model"
+    )
+    OPENAI_MAX_TOKENS: int = Field(
+        default=2000,
+        ge=100,
+        le=128000,
+        description="Max tokens for OpenAI"
+    )
+    
+    # Anthropic Configuration
+    ANTHROPIC_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Anthropic API key"
+    )
+    ANTHROPIC_MODEL: str = Field(
+        default="claude-3-sonnet-20240229",
+        description="Default Anthropic model"
+    )
+    ANTHROPIC_MAX_TOKENS: int = Field(
+        default=4000,
+        ge=100,
+        le=200000,
+        description="Max tokens for Anthropic"
+    )
+    
+    # LLM Behavior
+    LLM_DEFAULT_TEMPERATURE: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Default temperature for LLM"
+    )
+    LLM_RETRY_ATTEMPTS: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Number of retry attempts for LLM failures"
+    )
+    LLM_RETRY_DELAY: int = Field(
+        default=2,
+        ge=1,
+        le=30,
+        description="Delay between retries in seconds"
+    )
+
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------

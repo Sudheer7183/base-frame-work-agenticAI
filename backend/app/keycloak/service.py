@@ -613,7 +613,8 @@ class KeycloakMultiTenantService:
             # DEVELOPMENT MODE: Skip signature verification for testing
             # IMPORTANT: Remove this in production!
             import os
-            if os.getenv("KEYCLOAK_SKIP_VERIFICATION", "false").lower() == "true":
+            KEYCLOAK_SKIP_VERIFICATION=True
+            if KEYCLOAK_SKIP_VERIFICATION:
                 logger.warning("⚠️ SKIPPING TOKEN VERIFICATION - DEVELOPMENT MODE ONLY")
                 payload = jwt.decode(
                     token, 

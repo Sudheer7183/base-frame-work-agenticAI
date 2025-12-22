@@ -39,9 +39,9 @@ def test_complete_flow():
         
         try:
             tenant = tenant_service.create_tenant(
-                slug="testcompany",
-                name="Test Company Inc",
-                admin_email="admin@testcompany.com",
+                slug="testcompany1",
+                name="Test Company Inc1",
+                admin_email="admin@testcompany.com1",
                 max_users=100
             )
             logger.info(f"✓ Tenant created: {tenant.slug} ({tenant.schema_name})")
