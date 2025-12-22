@@ -20,7 +20,7 @@ from .events import (
     create_completion_event,
     create_error_event
 )
-from app.langgraph.executor import LangGraphExecutor
+from app.agent_langgraph.executor import AsyncLangGraphExecutor
 
 logger = logging.getLogger(__name__)
 

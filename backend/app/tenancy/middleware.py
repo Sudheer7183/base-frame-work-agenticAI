@@ -32,6 +32,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/platform/tenants",  # Tenant management endpoints
         "/auth/login",
         "/auth/callback",
+        "/api/v1/users/me"
     }
     
     def __init__(self, app, exempt_paths: Set[str] = None):
@@ -44,6 +45,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         
         # Clear any existing tenant context
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         clear_tenant()
         
         # Check if path is exempt

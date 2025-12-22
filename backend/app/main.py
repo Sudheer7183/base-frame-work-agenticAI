@@ -54,6 +54,8 @@ from app.agui.server import create_agui_router
 from app.core.security import get_current_user  # Use enhanced version
 from app.keycloak.service import get_keycloak_service
 
+from app.core.rate_limiting import rate_limiter
+
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -79,12 +81,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",   # React admin
-        "http://localhost:5173",   # Vite alt
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",  # Vite alt
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Tenant-Slug"],
 )
 
 # Add tenant middleware (AFTER CORS)
@@ -138,6 +143,14 @@ app.include_router(create_agui_router(), tags=["AG-UI"])
 #         logger.info("✓ Keycloak connection established")
 #     except Exception as e:
 #         logger.error(f"✗ Keycloak connection failed: {e}")
+
+@app.on_event("startup")
+async def startup():
+    await rate_limiter.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await rate_limiter.disconnect()
 
 @app.on_event("startup")
 async def startup_event():

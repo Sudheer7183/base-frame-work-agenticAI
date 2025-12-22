@@ -279,6 +279,14 @@ class Settings(BaseSettings):
         description="Delay between retries in seconds"
     )
 
+
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = "noreply@yourcompany.com"
+    SMTP_PASSWORD: str = "your-password"
+    SMTP_FROM_EMAIL: str = "noreply@yourcompany.com"
+    SMTP_FROM_NAME: str = "Agentic AI Platform"
+
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------

@@ -170,7 +170,7 @@ async def execute_agent(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user)
 ):
-    from app.langgraph.executor import LangGraphExecutor
+    from app.agent_langgraph.executor import LangGraphExecutor
     
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
     if not agent or not agent.active:
