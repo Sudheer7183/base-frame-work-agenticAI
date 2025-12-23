@@ -63,6 +63,12 @@ from app.core.cache import init_cache
 from app.core.monitoring import init_monitoring
 from app.api.p2_features import router as p2_router
 
+#P3 features implementation
+
+from app.api.v1.workflow_marketplace import router as marketplace_router
+from app.api.v1.sso_integration import router as sso_router
+from app.api.v1.advanced_analytics import router as analytics_router
+from app.api.v1.ai_model_management import router as models_router
 
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
@@ -122,9 +128,19 @@ app.include_router(agents.router, prefix=settings.API_PREFIX, tags=["agents"])
 app.include_router(hitl.router, prefix=settings.API_PREFIX, tags=["hitl"])
 app.include_router(users.router, prefix=settings.API_PREFIX, tags=["users"])
 app.include_router(p2_router, prefix="/api", tags=["P2 Features"])
+
 #ag-ui-routers
 
 app.include_router(create_agui_router(), tags=["AG-UI"])
+
+#P3 routers
+
+app.include_router(marketplace_router, prefix="/api/v1")
+app.include_router(sso_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(models_router, prefix="/api/v1")
+
+
 
 # @app.on_event("startup")
 # async def startup_event():

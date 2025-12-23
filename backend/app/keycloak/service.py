@@ -530,6 +530,8 @@ from app.core.exceptions import UnauthorizedException, ForbiddenException
 
 logger = logging.getLogger(__name__)
 
+import os
+KEYCLOAK_SKIP_VERIFICATION = os.getenv("KEYCLOAK_SKIP_VERIFICATION", "false").lower() == "true"
 
 class KeycloakMultiTenantService:
     """Production-ready Keycloak service"""
@@ -612,8 +614,7 @@ class KeycloakMultiTenantService:
         try:
             # DEVELOPMENT MODE: Skip signature verification for testing
             # IMPORTANT: Remove this in production!
-            import os
-            KEYCLOAK_SKIP_VERIFICATION=True
+
             if KEYCLOAK_SKIP_VERIFICATION:
                 logger.warning("⚠️ SKIPPING TOKEN VERIFICATION - DEVELOPMENT MODE ONLY")
                 payload = jwt.decode(

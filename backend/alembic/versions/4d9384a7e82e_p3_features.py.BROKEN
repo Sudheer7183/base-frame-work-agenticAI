@@ -1,0 +1,336 @@
+"""
+Add P3 features tables
+
+Revision ID: 004_add_p3_features
+Revises: 003_add_users
+Create Date: 2024-12-23
+"""
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '4d9384a7e82e'
+down_revision: Union[str, None] = '514d33145663'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Add tables for P3 features: Workflow Marketplace, SSO, Analytics, AI Model Management"""
+    
+    # =========================================================================
+    # 1. WORKFLOW MARKETPLACE TABLES
+    # =========================================================================
+    
+    # Workflow templates table
+    op.create_table(
+        'workflow_templates',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(255), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('category', sa.String(100), nullable=False),
+        sa.Column('tags', postgresql.JSONB(), nullable=False, server_default='[]'),
+        sa.Column('workflow_definition', postgresql.JSONB(), nullable=False),
+        sa.Column('config_schema', postgresql.JSONB(), nullable=False, server_default='{}'),
+        sa.Column('author_id', sa.Integer(), nullable=True),
+        sa.Column('is_official', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('is_public', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('install_count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('rating', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('review_count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('version', sa.String(50), nullable=False, server_default='1.0.0'),
+        sa.Column('changelog', sa.Text(), nullable=True),
+        sa.Column('is_premium', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('price', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_workflow_templates_name', 'workflow_templates', ['name'])
+    op.create_index('idx_workflow_templates_category', 'workflow_templates', ['category'])
+    op.create_index('idx_workflow_templates_is_official', 'workflow_templates', ['is_official'])
+    op.create_index('idx_workflow_templates_is_public', 'workflow_templates', ['is_public'])
+    
+    # Workflow reviews table
+    op.create_table(
+        'workflow_reviews',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('template_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('rating', sa.Integer(), nullable=False),
+        sa.Column('comment', sa.Text(), nullable=True),
+        sa.Column('helpful_count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['template_id'], ['workflow_templates.id'], ondelete='CASCADE'),
+        sa.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_review_rating')
+    )
+    
+    op.create_index('idx_workflow_reviews_template', 'workflow_reviews', ['template_id'])
+    op.create_index('idx_workflow_reviews_user', 'workflow_reviews', ['user_id'])
+    
+    # Workflow installations table
+    op.create_table(
+        'workflow_installations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('template_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('agent_id', sa.Integer(), nullable=True),
+        sa.Column('customizations', postgresql.JSONB(), nullable=False, server_default='{}'),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['template_id'], ['workflow_templates.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ondelete='SET NULL')
+    )
+    
+    op.create_index('idx_workflow_installations_template', 'workflow_installations', ['template_id'])
+    op.create_index('idx_workflow_installations_user', 'workflow_installations', ['user_id'])
+    
+    # =========================================================================
+    # 2. SSO TABLES
+    # =========================================================================
+    
+    # SSO configurations table
+    op.create_table(
+        'sso_configurations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('provider_type', sa.String(50), nullable=False),
+        sa.Column('provider_name', sa.String(255), nullable=False),
+        sa.Column('client_id', sa.String(500), nullable=True),
+        sa.Column('client_secret', sa.Text(), nullable=True),
+        sa.Column('authorization_endpoint', sa.String(500), nullable=True),
+        sa.Column('token_endpoint', sa.String(500), nullable=True),
+        sa.Column('userinfo_endpoint', sa.String(500), nullable=True),
+        sa.Column('jwks_uri', sa.String(500), nullable=True),
+        sa.Column('saml_entity_id', sa.String(500), nullable=True),
+        sa.Column('saml_sso_url', sa.String(500), nullable=True),
+        sa.Column('saml_certificate', sa.Text(), nullable=True),
+        sa.Column('scopes', postgresql.JSONB(), nullable=False,
+                  server_default='["openid", "email", "profile"]'),
+        sa.Column('redirect_uri', sa.String(500), nullable=False),
+        sa.Column('attribute_mapping', postgresql.JSONB(), nullable=False,
+                  server_default='{"email": "email", "given_name": "first_name", "family_name": "last_name", "name": "full_name"}'),
+        sa.Column('is_enabled', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('auto_provision_users', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('default_role', sa.String(100), nullable=True, server_default='user'),
+        sa.Column('require_email_verification', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_sso_configs_tenant', 'sso_configurations', ['tenant_slug'])
+    op.create_index('idx_sso_configs_enabled', 'sso_configurations', ['is_enabled'])
+    
+    # SSO sessions table
+    op.create_table(
+        'sso_sessions',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('provider_type', sa.String(50), nullable=False),
+        sa.Column('sso_user_id', sa.String(500), nullable=False),
+        sa.Column('access_token', sa.Text(), nullable=True),
+        sa.Column('refresh_token', sa.Text(), nullable=True),
+        sa.Column('id_token', sa.Text(), nullable=True),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('last_used', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_sso_sessions_user', 'sso_sessions', ['user_id'])
+    op.create_index('idx_sso_sessions_tenant', 'sso_sessions', ['tenant_slug'])
+    
+    # =========================================================================
+    # 3. ANALYTICS TABLES
+    # =========================================================================
+    
+    # Analytics events table
+    op.create_table(
+        'analytics_events',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('event_type', sa.String(100), nullable=False),
+        sa.Column('entity_type', sa.String(50), nullable=False),
+        sa.Column('entity_id', sa.Integer(), nullable=False),
+        sa.Column('execution_time_ms', sa.Float(), nullable=True),
+        sa.Column('success', sa.Integer(), nullable=True),
+        sa.Column('error_message', sa.String(500), nullable=True),
+        sa.Column('hitl_triggered', sa.Integer(), nullable=True),
+        sa.Column('cost_usd', sa.Float(), nullable=True),
+        sa.Column('token_count', sa.Integer(), nullable=True),
+        sa.Column('metadata', postgresql.JSONB(), nullable=False, server_default='{}'),
+        sa.Column('timestamp', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_analytics_events_tenant', 'analytics_events', ['tenant_slug'])
+    op.create_index('idx_analytics_events_type', 'analytics_events', ['event_type'])
+    op.create_index('idx_analytics_events_entity', 'analytics_events', ['entity_type', 'entity_id'])
+    op.create_index('idx_analytics_events_timestamp', 'analytics_events', ['timestamp'])
+    
+    # Analytics aggregates table
+    op.create_table(
+        'analytics_aggregates',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('entity_type', sa.String(50), nullable=False),
+        sa.Column('entity_id', sa.Integer(), nullable=False),
+        sa.Column('metric_type', sa.String(50), nullable=False),
+        sa.Column('granularity', sa.String(20), nullable=False),
+        sa.Column('period_start', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('period_end', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('sum_value', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('avg_value', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('min_value', sa.Float(), nullable=True),
+        sa.Column('max_value', sa.Float(), nullable=True),
+        sa.Column('percentile_50', sa.Float(), nullable=True),
+        sa.Column('percentile_95', sa.Float(), nullable=True),
+        sa.Column('percentile_99', sa.Float(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_analytics_agg_tenant', 'analytics_aggregates', ['tenant_slug'])
+    op.create_index('idx_analytics_agg_entity', 'analytics_aggregates', ['entity_type', 'entity_id'])
+    op.create_index('idx_analytics_agg_metric', 'analytics_aggregates', ['metric_type'])
+    op.create_index('idx_analytics_agg_period', 'analytics_aggregates', ['period_start'])
+    
+    # =========================================================================
+    # 4. AI MODEL MANAGEMENT TABLES
+    # =========================================================================
+    
+    # AI models table
+    op.create_table(
+        'ai_models',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(255), nullable=False),
+        sa.Column('model_id', sa.String(255), nullable=False, unique=True),
+        sa.Column('provider', sa.String(50), nullable=False),
+        sa.Column('version', sa.String(50), nullable=True),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('capabilities', postgresql.JSONB(), nullable=False, server_default='[]'),
+        sa.Column('context_window', sa.Integer(), nullable=True),
+        sa.Column('max_tokens', sa.Integer(), nullable=True),
+        sa.Column('input_cost_per_1m', sa.Float(), nullable=True),
+        sa.Column('output_cost_per_1m', sa.Float(), nullable=True),
+        sa.Column('avg_latency_ms', sa.Float(), nullable=True),
+        sa.Column('throughput_tokens_per_sec', sa.Float(), nullable=True),
+        sa.Column('status', sa.String(50), nullable=False, server_default='active'),
+        sa.Column('is_default', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('is_enabled', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('default_parameters', postgresql.JSONB(), nullable=False,
+                  server_default='{"temperature": 0.7, "max_tokens": 1000, "top_p": 1.0}'),
+        sa.Column('tags', postgresql.JSONB(), nullable=False, server_default='[]'),
+        sa.Column('metadata', postgresql.JSONB(), nullable=False, server_default='{}'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_ai_models_name', 'ai_models', ['name'])
+    op.create_index('idx_ai_models_provider', 'ai_models', ['provider'])
+    op.create_index('idx_ai_models_status', 'ai_models', ['status'])
+    op.create_index('idx_ai_models_enabled', 'ai_models', ['is_enabled'])
+    
+    # Model configurations table
+    op.create_table(
+        'model_configurations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('model_id', sa.Integer(), nullable=False),
+        sa.Column('agent_id', sa.Integer(), nullable=True),
+        sa.Column('parameters', postgresql.JSONB(), nullable=False, server_default='{}'),
+        sa.Column('api_endpoint', sa.String(500), nullable=True),
+        sa.Column('api_key_encrypted', sa.Text(), nullable=True),
+        sa.Column('max_requests_per_minute', sa.Integer(), nullable=True),
+        sa.Column('max_tokens_per_day', sa.Integer(), nullable=True),
+        sa.Column('fallback_model_id', sa.Integer(), nullable=True),
+        sa.Column('retry_attempts', sa.Integer(), nullable=False, server_default='3'),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['model_id'], ['ai_models.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ondelete='CASCADE')
+    )
+    
+    op.create_index('idx_model_configs_tenant', 'model_configurations', ['tenant_slug'])
+    op.create_index('idx_model_configs_model', 'model_configurations', ['model_id'])
+    op.create_index('idx_model_configs_agent', 'model_configurations', ['agent_id'])
+    op.create_index('idx_model_configs_active', 'model_configurations', ['is_active'])
+    
+    # Model usage table
+    op.create_table(
+        'model_usage',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('tenant_slug', sa.String(100), nullable=False),
+        sa.Column('model_id', sa.Integer(), nullable=False),
+        sa.Column('agent_id', sa.Integer(), nullable=True),
+        sa.Column('execution_id', sa.String(255), nullable=True),
+        sa.Column('input_tokens', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('output_tokens', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('total_tokens', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('cost_usd', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('latency_ms', sa.Float(), nullable=True),
+        sa.Column('success', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('error_message', sa.String(500), nullable=True),
+        sa.Column('timestamp', sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    op.create_index('idx_model_usage_tenant', 'model_usage', ['tenant_slug'])
+    op.create_index('idx_model_usage_model', 'model_usage', ['model_id'])
+    op.create_index('idx_model_usage_agent', 'model_usage', ['agent_id'])
+    op.create_index('idx_model_usage_execution', 'model_usage', ['execution_id'])
+    op.create_index('idx_model_usage_timestamp', 'model_usage', ['timestamp'])
+
+
+
+def downgrade() -> None:
+    # Drop model management tables
+    op.drop_table('model_usage')
+    op.drop_table('model_configurations')
+    op.drop_table('ai_models')
+    
+    # Drop analytics tables
+    op.drop_table('analytics_aggregates')
+    op.drop_table('analytics_events')
+    
+    # Drop SSO tables
+    op.drop_table('sso_sessions')
+    op.drop_table('sso_configurations')
+    
+    # Drop workflow marketplace tables
+    op.drop_table('workflow_installations')
+    op.drop_table('workflow_reviews')
+    op.drop_table('workflow_templates')
