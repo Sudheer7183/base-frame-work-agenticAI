@@ -1,22 +1,28 @@
-"""add_audit_logs_table
+"""create audit_logs table
 
-Revision ID: <auto_generated>
+Revision ID: ec5ff670cae7
 Revises: 14eb31fb242b
-Create Date: <auto_generated>
+Create Date: 2025-12-22 13:00:44.970390
+
 """
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision: str = '14eb31fb242b'
-down_revision: Union[str, None] = 'a93ad6fadec3'
+# revision identifiers, used by Alembic.
+revision: str = 'ec5ff670cae7'
+down_revision: Union[str, None] = '14eb31fb242b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create audit_logs table in public schema
     op.create_table(
         'audit_logs',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -43,6 +49,7 @@ def upgrade() -> None:
     op.create_index('idx_audit_user_action', 'audit_logs', ['user_id', 'action'], schema='public')
     op.create_index('idx_audit_resource', 'audit_logs', ['resource_type', 'resource_id'], schema='public')
     op.create_index('idx_audit_timestamp_action', 'audit_logs', ['timestamp', 'action'], schema='public')
+
 
 
 def downgrade() -> None:
