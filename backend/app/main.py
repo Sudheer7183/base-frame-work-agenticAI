@@ -56,6 +56,14 @@ from app.keycloak.service import get_keycloak_service
 
 from app.core.rate_limiting import rate_limiter
 
+#P2 features implementation. 
+
+from app.tools.registry import register_default_tools
+from app.core.cache import init_cache
+from app.core.monitoring import init_monitoring
+from app.api.p2_features import router as p2_router
+
+
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -113,7 +121,7 @@ app.include_router(admin_router, tags=["Admin"])
 app.include_router(agents.router, prefix=settings.API_PREFIX, tags=["agents"])
 app.include_router(hitl.router, prefix=settings.API_PREFIX, tags=["hitl"])
 app.include_router(users.router, prefix=settings.API_PREFIX, tags=["users"])
-
+app.include_router(p2_router, prefix="/api", tags=["P2 Features"])
 #ag-ui-routers
 
 app.include_router(create_agui_router(), tags=["AG-UI"])
@@ -147,6 +155,22 @@ app.include_router(create_agui_router(), tags=["AG-UI"])
 @app.on_event("startup")
 async def startup():
     await rate_limiter.connect()
+
+    init_cache(
+        redis_url=settings.REDIS_URL,
+        default_ttl=settings.CACHE_DEFAULT_TTL
+    )
+    
+    # Initialize monitoring
+    init_monitoring(
+        service_name="agentic-ai-platform",
+        metrics_enabled=settings.METRICS_ENABLED,
+        tracing_enabled=settings.OTEL_ENABLED
+    )
+    
+    # Register default tools
+    register_default_tools()
+
 
 @app.on_event("shutdown")
 async def shutdown():

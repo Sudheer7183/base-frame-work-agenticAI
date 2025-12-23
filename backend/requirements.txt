@@ -87,3 +87,12 @@ passlib[bcrypt]
 python-keycloak>=4.5.0
 python-jose[cryptography]>=3.3.0
 requests
+
+
+redis==5.0.3
+hiredis==2.3.2
+prometheus-client==0.20.0
+opentelemetry-api==1.23.0
+opentelemetry-sdk==1.23.0
+openpyxl==3.1.2
+pandas==2.2.1

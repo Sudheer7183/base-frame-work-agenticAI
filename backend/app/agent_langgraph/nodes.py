@@ -12,8 +12,8 @@ from .state import AgentState
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
-
+from app.tools.registry import get_tool_registry
+# from app.agent_langgraph.nodes_updated import tool_execution_node
 async def input_validation_node(state: AgentState) -> AgentState:
     """
     Validate input data
