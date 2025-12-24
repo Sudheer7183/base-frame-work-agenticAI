@@ -619,7 +619,7 @@ class KeycloakMultiTenantService:
                 logger.warning("⚠️ SKIPPING TOKEN VERIFICATION - DEVELOPMENT MODE ONLY")
                 payload = jwt.decode(
                     token, 
-                    options={"verify_signature": False, "verify_exp": False}
+                    options={"verify_signature": False, "verify_exp": False,"verify_aud": False,}
                 )
                 return payload
             
@@ -644,8 +644,8 @@ class KeycloakMultiTenantService:
                 token,
                 key,
                 algorithms=["RS256"],
-                audience=self.client_id,
-                options={"verify_exp": True}
+                # audience=self.client_id,
+                options={"verify_exp": True,"verify_aud": False,}
             )
             
             # Validate tenant claim if provided
