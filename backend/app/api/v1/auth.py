@@ -19,6 +19,115 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+"""
+Add this endpoint to backend/app/api/v1/auth.py
+
+This endpoint allows the frontend to fetch invitation details
+before the user logs in (public endpoint, no auth required)
+"""
+
+@router.get("/invitation/{invitation_token}")
+async def get_invitation_details(
+    invitation_token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get invitation details by token (Public endpoint - no auth required)
+    
+    This allows the AcceptInvitationPage to display invitation details
+    before the user logs in via SSO.
+    
+    Returns:
+        Invitation details (email, tenant, roles, expiry, etc.)
+    
+    Raises:
+        404: If invitation not found or expired
+        410: If invitation already accepted
+    """
+    from sqlalchemy import text
+    from app.tenancy.models import Tenant
+    from app.services.user_service import UserService
+    
+    try:
+        user_service = UserService(db)
+        
+        # Search for invitation across all tenants
+        result = user_service.find_invitation_across_tenants(invitation_token)
+        
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found or has expired"
+            )
+        
+        user, tenant_schema = result
+        
+        # Set tenant context
+        db.execute(text(f'SET search_path TO "{tenant_schema}", public'))
+        
+        # Check if already accepted
+        if user.invitation_status == 'accepted':
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="This invitation has already been accepted"
+            )
+        
+        # Check if cancelled
+        if user.invitation_status == 'cancelled':
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="This invitation has been cancelled"
+            )
+        
+        # Check if expired
+        if user.invitation_expires_at:
+            from datetime import datetime
+            if datetime.utcnow() > user.invitation_expires_at:
+                user.invitation_status = 'expired'
+                db.commit()
+                
+                raise HTTPException(
+                    status_code=status.HTTP_410_GONE,
+                    detail="This invitation has expired"
+                )
+        
+        # Get tenant info
+        tenant = db.query(Tenant).filter(
+            Tenant.slug == user.tenant_slug
+        ).first()
+        
+        # Get inviter info (if available)
+        inviter_name = "Administrator"
+        inviter_email = "admin@company.com"
+        
+        if user.invited_by:
+            inviter = db.query(User).filter(User.id == user.invited_by).first()
+            if inviter:
+                inviter_name = inviter.full_name or inviter.email
+                inviter_email = inviter.email
+        
+        # Return invitation details
+        return {
+            "email": user.email,
+            "full_name": user.full_name,
+            "tenant_name": tenant.name if tenant else user.tenant_slug,
+            "tenant_slug": user.tenant_slug,
+            "roles": user.roles or [],
+            "invited_by": inviter_name,
+            "invited_by_email": inviter_email,
+            "invited_at": user.invited_at.isoformat() if user.invited_at else None,
+            "expires_at": user.invitation_expires_at.isoformat() if user.invitation_expires_at else None,
+            "invitation_status": user.invitation_status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching invitation details: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load invitation details"
+        )
 
 @router.post("/sso/callback")
 async def sso_callback(
@@ -254,3 +363,5 @@ async def get_sso_providers(
             }
         ]
     }
+
+

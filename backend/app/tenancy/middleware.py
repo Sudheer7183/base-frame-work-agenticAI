@@ -32,7 +32,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/platform/tenants",  # Tenant management endpoints
         "/auth/login",
         "/auth/callback",
-        "/api/v1/users/me"
+        "/api/v1/users/me",
+        "/api/v1/auth/invitation",      # Invitation details (public)
+        "/api/v1/auth/sso/callback",    # SSO callback
+        "/api/v1/auth/sso/providers",   # SSO providers list
     }
     
     def __init__(self, app, exempt_paths: Set[str] = None):

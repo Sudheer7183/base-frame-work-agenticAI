@@ -944,7 +944,7 @@ from app.core.exceptions import (
 from app.tenancy.context import get_tenant_slug
 from app.services.email_service import get_email_service
 from app.core.audit import AuditLogger, AuditAction
-
+from app.tenancy.models import Tenant, TenantStatus
 logger = logging.getLogger(__name__)
 
 

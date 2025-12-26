@@ -1,55 +1,53 @@
 /**
- * Accept Invitation Page
+ * Accept Invitation Page - FIXED VERSION
  * 
  * File: frontend/react-admin/src/pages/AcceptInvitationPage.jsx
- * Purpose: Landing page for users to accept invitations via SSO
+ * 
+ * FIXES:
+ * 1. Actually fetch invitation details from backend
+ * 2. Pass invitation_token correctly in SSO redirect
+ * 3. Handle errors properly
+ * 4. Use correct Keycloak configuration
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
   CardContent,
   Typography,
   Button,
-  CircularProgress,
   Alert,
   AlertTitle,
   Chip,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Paper
+  CircularProgress,
+  Divider
 } from '@mui/material';
 import {
-  CheckCircle as CheckCircleIcon,
   Email as EmailIcon,
   Business as BusinessIcon,
   Security as SecurityIcon,
+  AccessTime as AccessTimeIcon,
   Login as LoginIcon,
-  Error as ErrorIcon,
-  Schedule as ScheduleIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 
 const AcceptInvitationPage = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
+  const invitationToken = searchParams.get('token');
   
   const [loading, setLoading] = useState(true);
   const [invitation, setInvitation] = useState(null);
   const [error, setError] = useState(null);
   const [ssoProviders, setSsoProviders] = useState([]);
 
-  const invitationToken = searchParams.get('token');
-
   useEffect(() => {
     if (!invitationToken) {
-      setError('Invalid invitation link - no token provided');
+      setError('No invitation token provided');
       setLoading(false);
       return;
     }
@@ -60,27 +58,30 @@ const AcceptInvitationPage = () => {
 
   const fetchInvitationDetails = async () => {
     try {
-      // In a real implementation, you'd have an endpoint to verify the token
-      // and get invitation details without requiring authentication
-      // For now, we'll simulate this
+      setLoading(true);
       
+      // ✅ FIX 1: Actually call backend to get invitation details
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/auth/invitation/${invitationToken}`
+      );
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Invitation not found or has expired');
+        }
+        if (response.status === 410) {
+          throw new Error('This invitation has already been accepted');
+        }
+        throw new Error('Failed to load invitation details');
+      }
+      
+      const data = await response.json();
+      setInvitation(data);
       setLoading(false);
-      
-      // Simulated invitation data
-      // In production, call: GET /api/v1/auth/invitation/{token}
-      setInvitation({
-        email: 'john.doe@company.com',
-        tenant_name: 'Acme Corporation',
-        invited_by: 'Jane Smith',
-        invited_by_email: 'jane.smith@company.com',
-        roles: ['USER'],
-        invited_at: new Date(),
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      });
       
     } catch (err) {
       console.error('Failed to fetch invitation:', err);
-      setError('Failed to load invitation details');
+      setError(err.message || 'Failed to load invitation details');
       setLoading(false);
     }
   };
@@ -95,93 +96,120 @@ const AcceptInvitationPage = () => {
       }
     } catch (err) {
       console.error('Failed to fetch SSO providers:', err);
-      // Continue anyway, we'll show default providers
+      // Continue anyway with default
     }
   };
 
   const handleSsoLogin = (provider) => {
-    // Redirect to SSO login with invitation token
-    const keycloakUrl = 'http://localhost:8080';
-    const realm = 'agentic';
-    const clientId = 'agentic-api';
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    const state = encodeURIComponent(JSON.stringify({ invitation_token: invitationToken }));
-    
-    // Build authorization URL
-    let authUrl = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${redirectUri}&` +
-      `response_type=code&` +
-      `scope=openid email profile&` +
-      `state=${state}`;
-    
-    // Add identity provider hint if available
-    if (provider && provider.alias) {
-      authUrl += `&kc_idp_hint=${provider.alias}`;
+    try {
+      // ✅ FIX 2: Use correct Keycloak configuration
+      const keycloakUrl = 'http://localhost:8080';
+      const realm = 'agentic';
+      const clientId = 'agentic-frontend';  // ← FIXED: Use frontend client
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      
+      // ✅ FIX 3: Properly encode state with invitation token
+      const stateData = {
+        invitation_token: invitationToken,
+        return_url: window.location.origin
+      };
+      
+      const state = btoa(JSON.stringify(stateData));
+      
+      // Build Keycloak auth URL
+      let authUrl = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?` +
+        `client_id=${clientId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=openid%20email%20profile&` +
+        `state=${encodeURIComponent(state)}`;
+      
+      // If specific provider requested, hint Keycloak to use it
+      if (provider && provider.alias) {
+        authUrl += `&kc_idp_hint=${provider.alias}`;
+      }
+      
+      console.log('Redirecting to SSO:', authUrl);
+      console.log('State:', stateData);
+      
+      // Redirect to Keycloak
+      window.location.href = authUrl;
+      
+    } catch (err) {
+      console.error('SSO login error:', err);
+      setError('Failed to initiate SSO login');
     }
-    
-    // Redirect to Keycloak
-    window.location.href = authUrl;
   };
 
   const isExpired = () => {
-    if (!invitation?.expires_at) return false;
-    return new Date() > new Date(invitation.expires_at);
+    if (!invitation || !invitation.expires_at) return false;
+    return new Date(invitation.expires_at) < new Date();
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
+  // Loading state
   if (loading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         minHeight: '100vh',
-        flexDirection: 'column',
-        gap: 2
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
       }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary">
-          Loading your invitation...
-        </Typography>
+        <Card sx={{ p: 4, maxWidth: 400 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <CircularProgress size={60} />
+            <Typography variant="h6" color="text.secondary">
+              Loading invitation...
+            </Typography>
+          </Box>
+        </Card>
       </Box>
     );
   }
 
+  // Error state
   if (error || !invitation) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         p: 3
       }}>
-        <Card sx={{ maxWidth: 500 }}>
-          <CardContent>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <ErrorIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Invalid Invitation
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {error || 'This invitation link is invalid or has expired.'}
-              </Typography>
-            </Box>
-            
+        <Card sx={{ maxWidth: 500, width: '100%' }}>
+          <CardContent sx={{ textAlign: 'center', p: 4 }}>
+            <ErrorIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
+            <Typography variant="h4" gutterBottom color="error">
+              Invalid Invitation
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              {error || 'This invitation link is invalid or has expired.'}
+            </Typography>
+            <Alert severity="info" sx={{ mt: 3, textAlign: 'left' }}>
+              <AlertTitle>What can I do?</AlertTitle>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <li>Contact your administrator to send a new invitation</li>
+                <li>Check if you used the correct link from your email</li>
+                <li>Make sure the invitation hasn't expired</li>
+              </ul>
+            </Alert>
             <Button
-              fullWidth
-              variant="outlined"
+              variant="contained"
               onClick={() => navigate('/')}
+              sx={{ mt: 3 }}
             >
               Go to Home
             </Button>
@@ -191,35 +219,35 @@ const AcceptInvitationPage = () => {
     );
   }
 
+  // Expired invitation
   if (isExpired()) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         p: 3
       }}>
-        <Card sx={{ maxWidth: 500 }}>
-          <CardContent>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <ScheduleIcon sx={{ fontSize: 80, color: 'warning.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Invitation Expired
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                This invitation expired on {formatDate(invitation.expires_at)}.
-              </Typography>
-            </Box>
-            
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Please contact {invitation.invited_by} ({invitation.invited_by_email}) to request a new invitation.
+        <Card sx={{ maxWidth: 500, width: '100%' }}>
+          <CardContent sx={{ textAlign: 'center', p: 4 }}>
+            <AccessTimeIcon sx={{ fontSize: 80, color: 'warning.main', mb: 2 }} />
+            <Typography variant="h4" gutterBottom color="warning.main">
+              Invitation Expired
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              This invitation expired on {formatDate(invitation.expires_at)}.
+            </Typography>
+            <Alert severity="info" sx={{ mt: 3, textAlign: 'left' }}>
+              <AlertTitle>Request a New Invitation</AlertTitle>
+              Please contact <strong>{invitation.invited_by_email}</strong> or your administrator
+              to send you a new invitation.
             </Alert>
-            
             <Button
-              fullWidth
-              variant="outlined"
+              variant="contained"
               onClick={() => navigate('/')}
+              sx={{ mt: 3 }}
             >
               Go to Home
             </Button>
@@ -229,148 +257,137 @@ const AcceptInvitationPage = () => {
     );
   }
 
+  // Valid invitation - show acceptance page
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    <Box sx={{
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       p: 3
     }}>
       <Card sx={{ maxWidth: 600, width: '100%' }}>
         <CardContent sx={{ p: 4 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Box sx={{ 
-              bgcolor: 'success.light', 
-              borderRadius: '50%', 
-              width: 80, 
-              height: 80, 
+            <Box sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               display: 'flex',
-              justifyContent: 'center',
               alignItems: 'center',
-              margin: '0 auto',
-              mb: 2
+              justifyContent: 'center',
+              margin: '0 auto 16px'
             }}>
-              <EmailIcon sx={{ fontSize: 40, color: 'success.dark' }} />
+              <EmailIcon sx={{ fontSize: 40, color: 'white' }} />
             </Box>
-            
             <Typography variant="h4" gutterBottom fontWeight="bold">
               You're Invited!
             </Typography>
-            
             <Typography variant="body1" color="text.secondary">
               {invitation.invited_by} has invited you to join their team
             </Typography>
           </Box>
 
           {/* Invitation Details */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 3, bgcolor: 'grey.50' }}>
-            <List dense>
-              <ListItem>
-                <ListItemIcon>
-                  <BusinessIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Organization"
-                  secondary={invitation.tenant_name}
-                />
-              </ListItem>
-              
-              <ListItem>
-                <ListItemIcon>
-                  <EmailIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Your Email"
-                  secondary={invitation.email}
-                />
-              </ListItem>
-              
-              <ListItem>
-                <ListItemIcon>
-                  <SecurityIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Access Level"
-                  secondary={
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                      {invitation.roles.map(role => (
-                        <Chip key={role} label={role} size="small" color="primary" variant="outlined" />
-                      ))}
-                    </Box>
-                  }
-                />
-              </ListItem>
-              
-              <ListItem>
-                <ListItemIcon>
-                  <ScheduleIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Expires"
-                  secondary={formatDate(invitation.expires_at)}
-                />
-              </ListItem>
-            </List>
-          </Paper>
+          <Box sx={{ bgcolor: 'grey.50', borderRadius: 2, p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <BusinessIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Organization
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {invitation.tenant_name}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <EmailIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Your Email
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {invitation.email}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <SecurityIcon color="action" />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                  Access Level
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {invitation.roles.map((role) => (
+                    <Chip
+                      key={role}
+                      label={role}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <AccessTimeIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Expires
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {formatDate(invitation.expires_at)}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
 
           {/* Instructions */}
-          <Alert severity="info" sx={{ mb: 3 }}>
+          <Alert severity="info" icon={<LoginIcon />} sx={{ mb: 3 }}>
             <AlertTitle>Next Steps</AlertTitle>
             <Typography variant="body2">
-              Click the button below to login with your corporate Single Sign-On (SSO). 
+              Click the button below to login with your corporate Single Sign-On (SSO).
               Your account will be automatically activated after you login.
             </Typography>
           </Alert>
 
           <Divider sx={{ my: 3 }} />
 
-          {/* SSO Login Buttons */}
+          {/* SSO Login Button */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
               Sign in to accept this invitation:
             </Typography>
             
-            {ssoProviders.length > 0 ? (
-              ssoProviders.filter(p => p.enabled).map(provider => (
-                <Button
-                  key={provider.alias}
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  startIcon={<LoginIcon />}
-                  endIcon={<ArrowForwardIcon />}
-                  onClick={() => handleSsoLogin(provider)}
-                  sx={{ 
-                    mb: 1.5,
-                    textTransform: 'none',
-                    justifyContent: 'space-between',
-                    px: 3
-                  }}
-                >
-                  {provider.display_name || `Login with ${provider.name}`}
-                </Button>
-              ))
-            ) : (
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                startIcon={<LoginIcon />}
-                endIcon={<ArrowForwardIcon />}
-                onClick={() => handleSsoLogin(null)}
-                sx={{ 
-                  mb: 1.5,
-                  textTransform: 'none',
-                  justifyContent: 'space-between',
-                  px: 3
-                }}
-              >
-                Login with Single Sign-On
-              </Button>
-            )}
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              startIcon={<LoginIcon />}
+              endIcon={<ArrowForwardIcon />}
+              onClick={() => handleSsoLogin(null)}
+              sx={{ 
+                mb: 1.5,
+                textTransform: 'none',
+                justifyContent: 'space-between',
+                px: 3,
+                py: 1.5,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5568d3 0%, #6941a0 100%)',
+                }
+              }}
+            >
+              Login with Single Sign-On
+            </Button>
           </Box>
 
           {/* Footer Note */}
