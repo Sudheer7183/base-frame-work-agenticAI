@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-
+// import { agentBuilderAPI } from '../api/agentBuilderAPI'; // Adjust path as needed
+import agentBuilderAPI from './api/agentBuilderAPI';
 // Auth Context
 const AuthContext = createContext(null);
 
@@ -170,79 +171,170 @@ export const AuthProvider = ({ children }) => {
   //   }
   // };
 
-  const login = async (email, password) => {
-    console.log('Attempting login for:', email);
+  // const login = async (email, password) => {
+  //   console.log('Attempting login for:', email);
     
-    try {
-      // Get token from Keycloak
-      const formData = new URLSearchParams();
-      formData.append('client_id', KEYCLOAK_CONFIG.clientId);
-      formData.append('grant_type', 'password');
-      formData.append('username', email);
-      formData.append('password', password);
+  //   try {
+  //     // Get token from Keycloak
+  //     const formData = new URLSearchParams();
+  //     formData.append('client_id', KEYCLOAK_CONFIG.clientId);
+  //     formData.append('grant_type', 'password');
+  //     formData.append('username', email);
+  //     formData.append('password', password);
       
-      const response = await fetch(
-        `${KEYCLOAK_CONFIG.url}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/token`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: formData.toString()
-        }
-      );
+  //     const response = await fetch(
+  //       `${KEYCLOAK_CONFIG.url}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/token`,
+  //       {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/x-www-form-urlencoded'
+  //         },
+  //         body: formData.toString()
+  //       }
+  //     );
 
-      console.log('Keycloak response status:', response.status);
+  //     console.log('Keycloak response status:', response.status);
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('Keycloak error:', error);
-        throw new Error(error.error_description || 'Login failed');
-      }
+  //     if (!response.ok) {
+  //       const error = await response.json();
+  //       console.error('Keycloak error:', error);
+  //       throw new Error(error.error_description || 'Login failed');
+  //     }
 
-      const data = await response.json();
-      console.log('Login successful, tokens received', data);
+  //     const data = await response.json();
+  //     console.log('Login successful, tokens received', data);
       
-      // Store tokens
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
+  //     // Store tokens
+  //     localStorage.setItem('access_token', data.access_token);
+  //     localStorage.setItem('refresh_token', data.refresh_token);
       
-      // ❌ REMOVE THESE LINES - data doesn't have tenant property
-      // localStorage.setItem('current_tenant', data.tenant)
+  //     // ❌ REMOVE THESE LINES - data doesn't have tenant property
+  //     // localStorage.setItem('current_tenant', data.tenant)
       
-      setToken(data.access_token);
-      setRefreshToken(data.refresh_token);
+  //     setToken(data.access_token);
+  //     setRefreshToken(data.refresh_token);
       
-      // Decode the token to get basic user info immediately
-      const decodedUser = decodeTokenPayload(data.access_token);
-      if (decodedUser) {
-        console.log('Setting user from decoded token:', decodedUser);
-        setUser(decodedUser);
+  //     // Decode the token to get basic user info immediately
+  //     const decodedUser = decodeTokenPayload(data.access_token);
+  //     if (decodedUser) {
+  //       console.log('Setting user from decoded token:', decodedUser);
+  //       setUser(decodedUser);
         
-        // ✅ EXTRACT TENANT FROM DECODED TOKEN, NOT FROM RESPONSE
-        if (decodedUser.tenant) {
-          const tenantInfo = {
-            slug: decodedUser.tenant,
-            name: decodedUser.tenant || 'Default Tenant',
-          };
-          localStorage.setItem('current_tenant', JSON.stringify(tenantInfo)); // ✅ Store as JSON
-          console.log('✅ Tenant set from token:', tenantInfo);
-        } else {
-          console.warn('⚠️ No tenant in token!');
-        }
+  //       // ✅ EXTRACT TENANT FROM DECODED TOKEN, NOT FROM RESPONSE
+  //       if (decodedUser.tenant) {
+  //         const tenantInfo = {
+  //           slug: decodedUser.tenant,
+  //           name: decodedUser.tenant || 'Default Tenant',
+  //         };
+  //         localStorage.setItem('current_tenant', JSON.stringify(tenantInfo)); // ✅ Store as JSON
+  //         console.log('✅ Tenant set from token:', tenantInfo);
+  //       } else {
+  //         console.warn('⚠️ No tenant in token!');
+  //       }
+  //     }
+      
+  //     // Then try to fetch full profile (optional, don't block login if this fails)
+  //     fetchUserProfile(data.access_token).catch(err => {
+  //       console.warn('Failed to fetch full profile, but login successful:', err);
+  //     });
+      
+  //     return { success: true };
+  //   } catch (error) {
+  //     console.error('Login error:', error);
+  //     return { success: false, error: error.message };
+  //   }
+  // };
+
+
+  const login = async (email, password) => {
+  console.log('Attempting login for:', email);
+  
+  try {
+    // Get token from Keycloak
+    const formData = new URLSearchParams();
+    formData.append('client_id', KEYCLOAK_CONFIG.clientId);
+    formData.append('grant_type', 'password');
+    formData.append('username', email);
+    formData.append('password', password);
+    
+    const response = await fetch(
+      `${KEYCLOAK_CONFIG.url}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData.toString()
       }
-      
-      // Then try to fetch full profile (optional, don't block login if this fails)
-      fetchUserProfile(data.access_token).catch(err => {
-        console.warn('Failed to fetch full profile, but login successful:', err);
-      });
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message };
+    );
+
+    console.log('Keycloak response status:', response.status);
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Keycloak error:', error);
+      throw new Error(error.error_description || 'Login failed');
     }
-  };
+
+    const data = await response.json();
+    console.log('Login successful, tokens received');
+    
+    // Store tokens
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    
+    setToken(data.access_token);
+    setRefreshToken(data.refresh_token);
+    
+    // Decode the token to get basic user info immediately
+    const decodedUser = decodeTokenPayload(data.access_token);
+    if (decodedUser) {
+      console.log('Setting user from decoded token:', decodedUser);
+      setUser(decodedUser);
+      
+      // Extract tenant from decoded token
+      if (decodedUser.tenant) {
+        const tenantInfo = {
+          slug: decodedUser.tenant,
+          name: decodedUser.tenant || 'Default Tenant',
+        };
+        localStorage.setItem('current_tenant', JSON.stringify(tenantInfo));
+        console.log('✅ Tenant set from token:', tenantInfo);
+      } else {
+        console.warn('⚠️ No tenant in token!');
+      }
+    }
+    
+    // ========================================================================
+    // 🆕 ADD THIS: Initialize user data (get integer DB ID)
+    // ========================================================================
+    try {
+      // Import at the top of your file
+      // import { agentBuilderAPI } from '../api/agentBuilderAPI';
+      
+      const userInfo = await agentBuilderAPI.initializeUser();
+      console.log('✅ User DB initialized:', {
+        id: userInfo.id,           // Integer DB ID
+        keycloak_id: userInfo.keycloak_id,  // UUID
+        email: userInfo.email
+      });
+    } catch (error) {
+      // Don't block login if this fails
+      console.warn('⚠️ Failed to initialize user DB info:', error);
+    }
+    // ========================================================================
+    
+    // Then try to fetch full profile (optional)
+    fetchUserProfile(data.access_token).catch(err => {
+      console.warn('Failed to fetch full profile, but login successful:', err);
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Login error:', error);
+    return { success: false, error: error.message };
+  }
+};
 
   // const refreshAccessToken = async () => {
   //   const storedRefresh = localStorage.getItem('refresh_token');

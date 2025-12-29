@@ -36,6 +36,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/invitation",      # Invitation details (public)
         "/api/v1/auth/sso/callback",    # SSO callback
         "/api/v1/auth/sso/providers",   # SSO providers list
+        "/api/v1//agent-builder",
+        "/api/v1//agent-builder/*"
     }
     
     def __init__(self, app, exempt_paths: Set[str] = None):

@@ -92,6 +92,114 @@
 #     run_migrations_online()
 
 
+# """
+# Alembic environment configuration for multi-tenancy
+# Supports running migrations in both public and tenant schemas
+# """
+
+# from logging.config import fileConfig
+# from sqlalchemy import engine_from_config, pool, text
+# from alembic import context
+# import os
+
+# # Import your models
+# from app.tenancy.models import Base as TenantBase
+# from app.models.user import User
+# from app.models.agent import AgentConfig
+# from app.models.hitl import HITLRecord
+
+# # Alembic Config object
+# config = context.config
+
+# # Interpret the config file for Python logging
+# if config.config_file_name is not None:
+#     fileConfig(config.config_file_name)
+
+# # Add your model's MetaData object here
+# target_metadata = TenantBase.metadata
+
+
+# def get_schema_from_config():
+#     """
+#     Get the target schema from alembic config.
+#     This is set when running migrations via scripts.
+#     """
+#     schema = config.get_main_option("schema")
+#     if schema:
+#         print(f"[env.py] Using schema from config: {schema}")
+#     return schema or "public"
+
+
+# def run_migrations_offline() -> None:
+#     """
+#     Run migrations in 'offline' mode.
+#     """
+#     schema = get_schema_from_config()
+    
+#     url = config.get_main_option("sqlalchemy.url")
+#     context.configure(
+#         url=url,
+#         target_metadata=target_metadata,
+#         literal_binds=True,
+#         dialect_opts={"paramstyle": "named"},
+#         version_table_schema=schema,
+#         include_schemas=True,
+#     )
+
+#     with context.begin_transaction():
+#         # Set search path for this schema
+#         context.execute(f'SET search_path TO "{schema}", public')
+#         context.run_migrations()
+
+
+# def run_migrations_online() -> None:
+#     """
+#     Run migrations in 'online' mode.
+#     This is the main function that handles tenant schema migrations.
+#     """
+#     # Get target schema (could be 'public' or 'tenant_xxx')
+#     schema = get_schema_from_config()
+    
+#     print(f"[env.py] Running migrations for schema: {schema}")
+    
+#     connectable = engine_from_config(
+#         config.get_section(config.config_ini_section, {}),
+#         prefix="sqlalchemy.",
+#         poolclass=pool.NullPool,
+#     )
+
+#     with connectable.connect() as connection:
+#         # CRITICAL: Set search_path BEFORE configuring context
+#         print(f"[env.py] Setting search_path to: {schema}, public")
+#         connection.execute(text(f'SET search_path TO "{schema}", public'))
+#         connection.commit()
+        
+#         # Configure context with schema-aware settings
+#         context.configure(
+#             connection=connection,
+#             target_metadata=target_metadata,
+#             version_table_schema=schema,  # Store alembic_version in this schema
+#             include_schemas=True,
+#             compare_type=True,
+#             compare_server_default=True,
+#         )
+
+#         with context.begin_transaction():
+#             # Double-check search path is set
+#             result = connection.execute(text("SHOW search_path"))
+#             current_path = result.scalar()
+#             print(f"[env.py] Current search_path: {current_path}")
+            
+#             # Run the migrations
+#             context.run_migrations()
+
+
+# if context.is_offline_mode():
+#     run_migrations_offline()
+# else:
+#     run_migrations_online()
+
+
 """
 Alembic environment configuration for multi-tenancy
 Supports running migrations in both public and tenant schemas
@@ -122,12 +230,24 @@ target_metadata = TenantBase.metadata
 def get_schema_from_config():
     """
     Get the target schema from alembic config.
-    This is set when running migrations via scripts.
+    This reads from the -x schema=tenant_demo parameter.
     """
+    # FIXED: Use context.get_x_argument() to read -x parameters
+    schema = context.get_x_argument(as_dictionary=True).get('schema')
+    
+    if schema:
+        print(f"[env.py] Using schema from -x parameter: {schema}")
+        return schema
+    
+    # Fallback to config file
     schema = config.get_main_option("schema")
     if schema:
-        print(f"[env.py] Using schema from config: {schema}")
-    return schema or "public"
+        print(f"[env.py] Using schema from config file: {schema}")
+        return schema
+    
+    # Default to public
+    print(f"[env.py] No schema specified, defaulting to: public")
+    return "public"
 
 
 def run_migrations_offline() -> None:
@@ -157,7 +277,7 @@ def run_migrations_online() -> None:
     Run migrations in 'online' mode.
     This is the main function that handles tenant schema migrations.
     """
-    # Get target schema (could be 'public' or 'tenant_xxx')
+    # CRITICAL FIX: Get schema from -x parameter
     schema = get_schema_from_config()
     
     print(f"[env.py] Running migrations for schema: {schema}")

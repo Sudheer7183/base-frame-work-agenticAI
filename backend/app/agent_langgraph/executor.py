@@ -629,11 +629,26 @@ class AsyncLangGraphExecutor:
             Execution result with output and metadata
         """
         # Get agent
-        agent = await asyncio.to_thread(
-            lambda: self.db.query(AgentConfig).filter(
-                AgentConfig.id == agent_id
-            ).first()
-        )
+        # agent = await asyncio.to_thread(
+        #     lambda: self.db.query(AgentConfig).filter(
+        #         AgentConfig.id == agent_id
+        #     ).first()
+        # )
+
+        agent = self.db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
+        
+        # Get builder config
+        builder_config = self.db.execute(text("""
+            SELECT * FROM agent_builder_configs 
+            WHERE agent_id = :agent_id 
+            ORDER BY version DESC LIMIT 1
+        """), {"agent_id": agent_id}).fetchone()
+        
+        if builder_config:
+            # Use builder config to create LangGraph
+            config = self._merge_configs(agent.config, dict(builder_config))
+        else:
+            config = agent.config
         
         if not agent:
             raise ValueError(f"Agent {agent_id} not found")

@@ -43,6 +43,8 @@ from app.api.v1.sso_integration import router as sso_router
 from app.api.v1.advanced_analytics import router as analytics_router
 from app.api.v1.ai_model_management import router as models_router
 from app.api.v1.auth import router as auth_api_router
+from app.api.v1.agent_builder import router as agent_builder_router  # Add this
+
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -103,6 +105,10 @@ app.include_router(users.router, prefix=settings.API_PREFIX, tags=["users"])
 app.include_router(p2_router, prefix="/api", tags=["P2 Features"])
 app.include_router(auth_api_router,prefix=settings.API_PREFIX,tags=["Authentication"])
 #ag-ui-routers
+
+# app.include_router(agents_router, prefix="/agents", tags=["agents"])
+app.include_router(agent_builder_router,prefix=settings.API_PREFIX, tags=["agent-builder"])  # Add this
+
 
 app.include_router(create_agui_router(), tags=["AG-UI"])
 
