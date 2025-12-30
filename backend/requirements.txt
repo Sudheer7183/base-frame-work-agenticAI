@@ -100,3 +100,5 @@ pandas==2.2.1
 cryptography==42.0.5
 python-dotenv==1.0.1
 hvac==2.1.0  # HashiCorp Vault client
+
+apscheduler==3.10.4

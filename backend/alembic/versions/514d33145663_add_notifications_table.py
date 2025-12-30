@@ -22,6 +22,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'notifications' in inspector.get_table_names(schema='public'):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
     op.create_table(
         'notifications',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -48,6 +53,8 @@ def upgrade() -> None:
     op.create_index('idx_notification_user_unread', 'notifications', ['user_id', 'read'], schema='public')
     op.create_index('idx_notification_created_at', 'notifications', ['created_at'], schema='public')
 
+    pass
 
 def downgrade() -> None:
     op.drop_table('notifications', schema='public')
+    # pass

@@ -356,7 +356,7 @@ from .exceptions import (
     TenantNotFoundError
 )
 from .db import get_engine
-
+import time
 logger = logging.getLogger(__name__)
 
 
@@ -366,6 +366,98 @@ class TenantService:
     def __init__(self, db: Session):
         self.db = db
         self.engine = get_engine()
+    
+    # def create_tenant(
+    #     self,
+    #     slug: str,
+    #     name: str,
+    #     schema_name: Optional[str] = None,
+    #     admin_email: Optional[str] = None,
+    #     description: Optional[str] = None,
+    #     config: Optional[Dict[str, Any]] = None,
+    #     max_users: Optional[int] = None
+    # ) -> Tenant:
+    #     """
+    #     Create and provision a new tenant
+        
+    #     Args:
+    #         slug: Tenant slug (unique identifier)
+    #         name: Display name
+    #         schema_name: PostgreSQL schema name (auto-generated if not provided)
+    #         admin_email: Admin contact email
+    #         description: Tenant description
+    #         config: Additional configuration
+    #         max_users: Maximum users allowed
+            
+    #     Returns:
+    #         Created Tenant object
+            
+    #     Raises:
+    #         InvalidTenantError: If validation fails
+    #         TenantProvisionError: If provisioning fails
+    #     """
+    #     # Validate inputs
+    #     validate_slug(slug)
+        
+    #     # Auto-generate schema name if not provided
+    #     if not schema_name:
+    #         schema_name = f"tenant_{slug}"
+        
+    #     validate_schema_name(schema_name)
+        
+    #     # Check if tenant already exists
+    #     if Tenant.exists(self.db, slug=slug):
+    #         raise InvalidTenantError(f"Tenant with slug '{slug}' already exists")
+        
+    #     if Tenant.exists(self.db, schema=schema_name):
+    #         raise InvalidTenantError(f"Schema '{schema_name}' already exists")
+        
+    #     logger.info(f"Creating tenant: slug={slug}, schema={schema_name}")
+        
+    #     # Create tenant record with provisioning status
+    #     tenant = Tenant(
+    #         slug=slug,
+    #         schema_name=schema_name,
+    #         name=name,
+    #         description=description,
+    #         status=TenantStatus.PROVISIONING.value,
+    #         config=config or {},
+    #         max_users=max_users,
+    #         admin_email=admin_email,
+    #         created_at=datetime.utcnow(),
+    #         updated_at=datetime.utcnow()
+    #     )
+        
+    #     try:
+    #         # Add to database
+    #         self.db.add(tenant)
+    #         self.db.commit()
+            
+    #         # Provision schema - use separate connection to avoid transaction conflict
+    #         self._provision_schema(schema_name)
+            
+    #         # Run migrations (implement based on your migration tool)
+    #         self._run_migrations(schema_name)
+            
+    #         # Update status to active
+    #         tenant.status = TenantStatus.ACTIVE.value
+    #         tenant.updated_at = datetime.utcnow()
+    #         self.db.commit()
+            
+    #         logger.info(f"Tenant created successfully: {slug}")
+    #         return tenant
+            
+    #     except Exception as e:
+    #         self.db.rollback()
+    #         logger.error(f"Failed to create tenant {slug}: {e}")
+            
+    #         # Cleanup on failure
+    #         try:
+    #             self._cleanup_failed_provision(schema_name)
+    #         except Exception as cleanup_error:
+    #             logger.error(f"Cleanup failed for {schema_name}: {cleanup_error}")
+            
+    #         raise TenantProvisionError(f"Failed to provision tenant: {e}")
     
     def create_tenant(
         self,
@@ -432,24 +524,42 @@ class TenantService:
             # Add to database
             self.db.add(tenant)
             self.db.commit()
+            logger.info(f"✅ Tenant record committed to database")
             
-            # Provision schema - use separate connection to avoid transaction conflict
+            # Provision schema
+            logger.info(f"→ Starting schema provisioning...")
             self._provision_schema(schema_name)
+            logger.info(f"✅ Schema provisioning completed")
             
-            # Run migrations (implement based on your migration tool)
+            # Run migrations
+            logger.info(f"→ Starting migrations...")
             self._run_migrations(schema_name)
+            logger.info(f"✅ Migrations completed")
             
-            # Update status to active
+            # CRITICAL: Update status to active
+            logger.info(f"=" * 60)
+            logger.info(f"UPDATING TENANT STATUS TO ACTIVE")
+            logger.info(f"=" * 60)
+            logger.info(f"Current status: {tenant.status}")
+            
             tenant.status = TenantStatus.ACTIVE.value
             tenant.updated_at = datetime.utcnow()
+            
+            logger.info(f"New status set: {tenant.status}")
+            logger.info(f"Calling self.db.commit()...")
+            
             self.db.commit()
             
+            logger.info(f"✅✅✅ COMMIT SUCCESSFUL ✅✅✅")
+            logger.info(f"Final tenant status: {tenant.status}")
             logger.info(f"Tenant created successfully: {slug}")
+            
             return tenant
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Failed to create tenant {slug}: {e}")
+            logger.error(f"❌ Failed to create tenant {slug}: {e}")
+            logger.exception("Full exception traceback:")
             
             # Cleanup on failure
             try:
@@ -458,24 +568,145 @@ class TenantService:
                 logger.error(f"Cleanup failed for {schema_name}: {cleanup_error}")
             
             raise TenantProvisionError(f"Failed to provision tenant: {e}")
+
+    # def _provision_schema(self, schema_name: str) -> None:
+    #     """Create PostgreSQL schema using isolation level AUTOCOMMIT"""
+    #     validate_schema_name(schema_name)
+        
+    #     logger.info(f"Creating schema: {schema_name}")
+        
+    #     try:
+    #         # Use AUTOCOMMIT isolation level for DDL operations
+    #         # This avoids transaction conflicts and is the proper way to execute CREATE SCHEMA
+    #         with self.engine.connect().execution_options(
+    #             isolation_level="AUTOCOMMIT"
+    #         ) as conn:
+    #             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+    #             logger.info(f"Schema created: {schema_name}")
+                
+    #     except SQLAlchemyError as e:
+    #         logger.error(f"Failed to create schema {schema_name}: {e}")
+    #         raise TenantProvisionError(f"Schema creation failed: {e}")
     
     def _provision_schema(self, schema_name: str) -> None:
-        """Create PostgreSQL schema using isolation level AUTOCOMMIT"""
+        """Create PostgreSQL schema using completely isolated connection"""
+        from sqlalchemy import create_engine, pool
+        from sqlalchemy.engine.url import make_url
+        import time
+        
         validate_schema_name(schema_name)
         
-        logger.info(f"Creating schema: {schema_name}")
+        logger.info(f"=" * 60)
+        logger.info(f"CREATING SCHEMA: {schema_name}")
+        logger.info(f"=" * 60)
         
         try:
-            # Use AUTOCOMMIT isolation level for DDL operations
-            # This avoids transaction conflicts and is the proper way to execute CREATE SCHEMA
-            with self.engine.connect().execution_options(
-                isolation_level="AUTOCOMMIT"
-            ) as conn:
-                conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-                logger.info(f"Schema created: {schema_name}")
+            # CRITICAL: Clone the URL properly to preserve password
+            # Using render_as_string with hide_password=False
+            original_url = self.engine.url
+            
+            # Reconstruct URL with password preserved
+            if original_url.password:
+                ddl_url = original_url.set(
+                    drivername=original_url.drivername,
+                    username=original_url.username,
+                    password=original_url.password,
+                    host=original_url.host,
+                    port=original_url.port,
+                    database=original_url.database
+                )
+            else:
+                ddl_url = original_url
+            
+            logger.info(f"Creating DDL engine (password preserved)")
+            
+            # Create a completely separate engine for DDL
+            ddl_engine = create_engine(
+                ddl_url,
+                poolclass=pool.NullPool,  # No connection pooling
+                isolation_level="AUTOCOMMIT"  # Autocommit at engine level
+            )
+            
+            try:
+                logger.info(f"Created isolated DDL engine (NullPool, AUTOCOMMIT)")
                 
-        except SQLAlchemyError as e:
+                # Use this isolated engine for schema creation
+                with ddl_engine.connect() as conn:
+                    # Verify connection
+                    result = conn.execute(text("SELECT current_database(), current_user"))
+                    db, user = result.fetchone()
+                    logger.info(f"DDL connection to database: {db} as user: {user}")
+                    
+                    # List schemas BEFORE
+                    result = conn.execute(
+                        text("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
+                    )
+                    before_schemas = [row[0] for row in result]
+                    logger.info(f"Schemas BEFORE: {len(before_schemas)} schemas")
+                    
+                    # Create schema
+                    logger.info(f"Executing: CREATE SCHEMA IF NOT EXISTS \"{schema_name}\"")
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+                    logger.info(f"✓ CREATE SCHEMA executed")
+                    
+                    # List schemas AFTER
+                    result = conn.execute(
+                        text("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
+                    )
+                    after_schemas = [row[0] for row in result]
+                    logger.info(f"Schemas AFTER: {len(after_schemas)} schemas")
+                    
+                    # Verify in same connection
+                    if schema_name in after_schemas:
+                        logger.info(f"✅ Schema {schema_name} confirmed in DDL connection")
+                    else:
+                        logger.error(f"❌ Schema NOT found in DDL connection")
+                        raise TenantProvisionError(f"Schema creation failed")
+                        
+            finally:
+                ddl_engine.dispose()
+                logger.info(f"✓ DDL engine disposed")
+            
+            # CRITICAL: Verify with main engine (completely different connection pool)
+            logger.info(f"Verifying with main engine...")
+            time.sleep(0.1)
+            
+            with self.engine.connect() as verify_conn:
+                result = verify_conn.execute(
+                    text("""
+                        SELECT schema_name, schema_owner
+                        FROM information_schema.schemata 
+                        WHERE schema_name = :schema
+                    """),
+                    {"schema": schema_name}
+                )
+                
+                row = result.fetchone()
+                
+                if not row:
+                    logger.error(f"❌ CRITICAL: Schema {schema_name} NOT FOUND in main engine!")
+                    
+                    # List all schemas
+                    result = verify_conn.execute(
+                        text("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
+                    )
+                    all_schemas = [r[0] for r in result]
+                    logger.error(f"Schemas visible in main engine: {all_schemas}")
+                    
+                    raise TenantProvisionError(
+                        f"Schema {schema_name} was created but is not visible in main engine. "
+                        f"This indicates a transaction isolation issue."
+                    )
+                
+                logger.info(f"✅ Schema verified in main engine: {schema_name} (owner: {row[1]})")
+            
+            logger.info(f"=" * 60)
+            logger.info(f"✅ SCHEMA CREATION SUCCESSFUL: {schema_name}")
+            logger.info(f"=" * 60)
+                
+        except Exception as e:
             logger.error(f"Failed to create schema {schema_name}: {e}")
+            logger.exception("Full traceback:")
             raise TenantProvisionError(f"Schema creation failed: {e}")
     
     def _run_migrations(self, schema_name: str) -> None:

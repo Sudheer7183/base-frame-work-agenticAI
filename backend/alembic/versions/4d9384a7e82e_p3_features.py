@@ -37,7 +37,22 @@ def upgrade() -> None:
     # -------------------------------------------------------------------------
     # 1. WORKFLOW MARKETPLACE TEMPLATES (Public - shared across tenants)
     # -------------------------------------------------------------------------
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'workflow_templates' in inspector.get_table_names(schema='public'):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
+
+    elif 'sso_configurations' in inspector.get_table_names(schema='public'):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
+
+    elif 'ai_models' in inspector.get_table_names(schema="public"):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
+
     
+
     op.create_table(
         'workflow_templates',
         sa.Column('id', sa.Integer(), nullable=False),

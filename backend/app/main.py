@@ -10,6 +10,9 @@ from app.core.logging import setup_logging
 from app.core.exceptions import register_exception_handlers
 from app.core.database import check_db_connection
 
+# Secrets Management
+from app.core.secrets import get_secrets_manager
+
 # Multi-tenancy imports
 from app.tenancy.middleware import TenantMiddleware
 from app.tenancy.api import router as tenant_router
@@ -44,6 +47,12 @@ from app.api.v1.advanced_analytics import router as analytics_router
 from app.api.v1.ai_model_management import router as models_router
 from app.api.v1.auth import router as auth_api_router
 from app.api.v1.agent_builder import router as agent_builder_router  # Add this
+
+#Backup routes 
+
+from app.backup.backup_service import DatabaseBackupService
+from app.backup.backup_scheduler import BackupScheduler
+from app.backup import backup_routes
 
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
@@ -173,8 +182,31 @@ async def shutdown():
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Agentic AI Platform (Multi-Tenant)...")
 
+    # ========================================================================
+    # STEP 1: Initialize Secrets Manager (MUST BE FIRST)
+    # ========================================================================
+    try:
+        logger.info("Initializing secrets manager...")
+        secrets_manager = get_secrets_manager()
+        app.state.secrets_manager = secrets_manager
+        
+        # Health check
+        health = secrets_manager.health_check()
+        logger.info(f"✓ Secrets manager initialized successfully")
+        logger.info(f"  - Provider: {health['provider']}")
+        logger.info(f"  - Status: {'Healthy' if health['provider_healthy'] else 'Unhealthy'}")
+        logger.info(f"  - Secrets count: {health.get('secrets_count', 'N/A')}")
+        logger.info(f"  - Cache size: {health['cache_size']}")
+        
+    except Exception as e:
+        logger.error(f"✗ Failed to initialize secrets manager: {e}")
+        logger.error("  Secrets management is required for secure operation")
+        raise RuntimeError(f"Secrets manager initialization failed: {e}")
+
+
+    logger.info("Starting Agentic AI Platform (Multi-Tenant)...")
+    
     # 1️⃣ Initialize Tenant Database FIRST
     try:
         print("setting db url at main",settings.DB_URL)
@@ -196,6 +228,37 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Keycloak connection failed: {e}")
         raise
+    
+    #Backup intialization
+    if settings.BACKUP_ENABLED:
+        try:
+            backup_service = DatabaseBackupService(
+                db_host=settings.DB_HOST,
+                db_port=settings.DB_PORT,
+                db_name=settings.DB_NAME,
+                db_user=settings.DB_USER,
+                db_password=settings.DB_PASSWORD,
+                backup_dir=settings.BACKUP_DIR,
+                retention_days=settings.BACKUP_RETENTION_DAYS,
+                max_backups=settings.BACKUP_MAX_COUNT
+            )
+            
+            backup_scheduler = BackupScheduler(
+                backup_service=backup_service,
+                full_backup_schedule=settings.BACKUP_FULL_SCHEDULE,
+                tenant_backup_interval_hours=settings.BACKUP_TENANT_INTERVAL_HOURS,
+                enable_monitoring=settings.BACKUP_MONITORING_ENABLED
+            )
+            
+            backup_scheduler.start()
+            
+            app.state.backup_service = backup_service
+            app.state.backup_scheduler = backup_scheduler
+            
+            logger.info("✓ Backup system initialized")
+        except Exception as e:
+            logger.error(f"✗ Backup initialization failed: {e}")
+
 
     logger.info("✓ Platform startup complete")
 
@@ -203,6 +266,8 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on application shutdown."""
+    if hasattr(app.state, 'backup_scheduler'):
+        app.state.backup_scheduler.stop()
     from app.core.database import close_db_connections
     close_db_connections()
     logger.info("Platform shutdown complete")

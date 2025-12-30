@@ -23,6 +23,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'audit_logs' in inspector.get_table_names(schema='public'):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
     op.create_table(
         'audit_logs',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -50,7 +55,10 @@ def upgrade() -> None:
     op.create_index('idx_audit_resource', 'audit_logs', ['resource_type', 'resource_id'], schema='public')
     op.create_index('idx_audit_timestamp_action', 'audit_logs', ['timestamp', 'action'], schema='public')
 
+    # pass
+
 
 
 def downgrade() -> None:
     op.drop_table('audit_logs', schema='public')
+    # pass

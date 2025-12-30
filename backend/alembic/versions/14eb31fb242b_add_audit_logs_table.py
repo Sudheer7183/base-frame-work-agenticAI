@@ -1,11 +1,11 @@
 """add_audit_logs_table
 
-Revision ID: <auto_generated>
-Revises: 14eb31fb242b
+Revision ID: 14eb31fb242b
+Revises: a93ad6fadec3
 Create Date: <auto_generated>
 """
 from typing import Sequence, Union
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -16,6 +16,23 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Get the target schema from context
+    schema = context.get_context().version_table_schema
+    
+    # IMPORTANT: This table should ONLY be created in PUBLIC schema
+    # Skip if running on tenant schemas
+    if schema and schema != "public":
+        print(f"[Migration] Skipping audit_logs - this is a public schema table only")
+        return
+    
+    print(f"[Migration] Creating audit_logs table in public schema")
+    
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'audit_logs' in inspector.get_table_names(schema='public'):
+        print(f"[Migration {revision}] Table already exists, skipping")
+        return
+
     # Create audit_logs table in public schema
     op.create_table(
         'audit_logs',
@@ -44,6 +61,16 @@ def upgrade() -> None:
     op.create_index('idx_audit_resource', 'audit_logs', ['resource_type', 'resource_id'], schema='public')
     op.create_index('idx_audit_timestamp_action', 'audit_logs', ['timestamp', 'action'], schema='public')
 
+    # pass
 
 def downgrade() -> None:
+    # Get the target schema from context
+    schema = context.get_context().version_table_schema
+    
+    # Only drop from public schema
+    if schema and schema != "public":
+        return
+        
     op.drop_table('audit_logs', schema='public')
+
+    # pass

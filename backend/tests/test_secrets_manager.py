@@ -7,6 +7,7 @@ Run with:
     pytest tests/test_secrets_manager.py -v
 """
 
+
 import pytest
 import os
 import tempfile

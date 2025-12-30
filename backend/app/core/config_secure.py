@@ -234,6 +234,12 @@ class Settings(BaseSettings):
             secrets_manager = get_secrets_manager()
             
             # Database password
+            if self.DB_PASSWORD:
+            self.DB_URL = (
+                f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@"
+                f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            )
+            logger.info(f"✓ DB_URL rebuilt with loaded password")
             if not self.DB_PASSWORD:
                 self.DB_PASSWORD = secrets_manager.get_secret(
                     "database/password",
