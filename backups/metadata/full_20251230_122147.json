@@ -1,0 +1,13 @@
+{
+  "backup_id": "full_20251230_122147",
+  "backup_type": "full",
+  "timestamp": "2025-12-30T12:21:47.092262",
+  "status": "completed",
+  "schemas": [
+    "*"
+  ],
+  "size_bytes": 342338,
+  "file_path": "/mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backups/full_20251230_122147.sql",
+  "error_message": null,
+  "duration_seconds": 0.370437
+}

@@ -1,0 +1,85 @@
+global:
+  resolve_timeout: 5m
+  # SMTP configuration for email alerts
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@agentic-ai.com'
+  smtp_auth_username: 'your-email@gmail.com'
+  smtp_auth_password: 'your-app-password'  # Use app-specific password
+  smtp_require_tls: true
+
+# Templates for alert formatting
+templates:
+  - '/etc/alertmanager/*.tmpl'
+
+# Route tree
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+  
+  routes:
+    # Critical alerts go to PagerDuty/Slack immediately
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+    
+    # Warning alerts go to email
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      repeat_interval: 1h
+
+# Receivers define notification targets
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'team@agentic-ai.com'
+        headers:
+          Subject: '[Agentic AI] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Alert: {{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+            <p><b>Summary:</b> {{ .Annotations.summary }}</p>
+            <p><b>Description:</b> {{ .Annotations.description }}</p>
+            <p><b>Severity:</b> {{ .Labels.severity }}</p>
+            <hr>
+          {{ end }}
+
+  - name: 'critical-alerts'
+    # Slack webhook
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#critical-alerts'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+            *Summary:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        send_resolved: true
+    
+    # Email for critical alerts
+    email_configs:
+      - to: 'oncall@agentic-ai.com'
+        headers:
+          Subject: '🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}'
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'alerts@agentic-ai.com'
+        headers:
+          Subject: '⚠️  WARNING: {{ .GroupLabels.alertname }}'
+
+# Inhibit rules (suppress certain alerts when others are firing)
+inhibit_rules:
+  # Inhibit warning if critical is firing for same alert
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

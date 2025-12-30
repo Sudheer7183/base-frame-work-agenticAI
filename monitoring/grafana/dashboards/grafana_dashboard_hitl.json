@@ -1,0 +1,244 @@
+{
+  "dashboard": {
+    "title": "Agentic AI Platform - HITL Monitoring",
+    "tags": ["agentic-ai", "hitl", "human-in-the-loop"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Pending HITL Records",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "hitl_pending_count"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "HITL Records by Status",
+        "type": "piechart",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "sum by (status) (hitl_records_total)",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "HITL Records by Priority",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "sum by (priority) (hitl_records_total)",
+            "legendFormat": "{{priority}}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Urgent HITL Count",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(hitl_records_total{priority=\"urgent\", status=\"pending\"})"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "orange"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "HITL Review Duration",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(hitl_review_duration_seconds_bucket[10m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(hitl_review_duration_seconds_bucket[10m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(hitl_review_duration_seconds_bucket[10m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Review Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "HITL Creation Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(hitl_records_total[5m])",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Records/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "HITL Approval vs Rejection Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(hitl_records_total{status=\"approved\"}[10m]))",
+            "legendFormat": "Approved"
+          },
+          {
+            "expr": "sum(rate(hitl_records_total{status=\"rejected\"}[10m]))",
+            "legendFormat": "Rejected"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Records/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "HITL Records Aging (Pending > 1 hour)",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 14, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "count(hitl_records_total{status=\"pending\"} > 3600)"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 3, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "HITL Escalation Rate",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 14, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(hitl_records_total{status=\"escalated\"}[1h]))"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "textMode": "value"
+        }
+      },
+      {
+        "id": 10,
+        "title": "Average Time to Review by Priority",
+        "type": "bargauge",
+        "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "avg by (priority) (hitl_review_duration_seconds)",
+            "legendFormat": "{{priority}}"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "HITL Records Timeline",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (status) (hitl_records_total)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Count"},
+          {"format": "short"}
+        ],
+        "stack": true
+      }
+    ],
+    "refresh": "10s",
+    "schemaVersion": 30,
+    "version": 1
+  }
+}

@@ -54,6 +54,9 @@ from app.backup.backup_service import DatabaseBackupService
 from app.backup.backup_scheduler import BackupScheduler
 from app.backup import backup_routes
 
+#metrics route
+from app.api.metrics import router as metrics_router
+
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -127,7 +130,7 @@ app.include_router(marketplace_router, prefix="/api/v1")
 app.include_router(sso_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
-
+app.include_router(metrics_router)
 
 
 # @app.on_event("startup")

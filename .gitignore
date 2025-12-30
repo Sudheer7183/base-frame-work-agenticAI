@@ -45,3 +45,7 @@ temp/
 Thumbs.db
 agentic-ai-platform-v1.3-complete/backend/venv
 agentic-ai-platform-v1.3-complete/frontend/react-admin/node_modules
+
+backend/vault_1.15.0_linux_amd64.zip
+
+.env

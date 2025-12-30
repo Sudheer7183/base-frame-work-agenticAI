@@ -434,8 +434,8 @@ class Settings(BaseSettings):
     # Database - Using Secrets Manager
     # ------------------------------------------------------------------
     DB_HOST: str = "localhost"
-    DB_PORT: int = Field(default=5432, ge=1024, le=65535)
-    DB_NAME: str = "agentic"
+    DB_PORT: int = Field(default=5433, ge=1024, le=65535)
+    DB_NAME: str = "agenticbase2"
     DB_USER: str = "postgres"
     DB_PASSWORD: Optional[str] = None  # Will be loaded from secrets
     DB_URL: Optional[str] = None

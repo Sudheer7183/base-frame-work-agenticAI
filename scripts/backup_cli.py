@@ -16,13 +16,16 @@ Usage:
 import sys
 import argparse
 import logging
+import os
 from pathlib import Path
 from datetime import datetime
 
 # Add backend to path
-# sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 from app.core.config import settings
 from app.backup.backup_service import (
@@ -40,13 +43,27 @@ logger = logging.getLogger(__name__)
 
 def get_backup_service() -> DatabaseBackupService:
     """Initialize backup service"""
+    # Get backup directory from settings or environment variable
+    backup_dir = os.getenv('BACKUP_DIR') or getattr(settings, 'BACKUP_DIR', None)
+    
+    # If still not found, use a default relative path
+    if not backup_dir or backup_dir == '/backups':
+        project_root = Path(__file__).parent.parent
+        backup_dir = str(project_root / "backups")
+        logger.warning(f"BACKUP_DIR not set in .env, using default: {backup_dir}")
+    
+    logger.info(f"Using backup directory: {backup_dir}")
+    
+    # Get database password from settings (which loads from secrets manager)
+    db_password = settings.DB_PASSWORD
+    
     return DatabaseBackupService(
         db_host=settings.DB_HOST,
         db_port=settings.DB_PORT,
         db_name=settings.DB_NAME,
         db_user=settings.DB_USER,
-        db_password=settings.DB_PASSWORD,
-        backup_dir=getattr(settings, 'BACKUP_DIR', 'D:/sudheer/new-base-platform-agentiai/backups'),
+        db_password=db_password,
+        backup_dir=backup_dir,
         retention_days=getattr(settings, 'BACKUP_RETENTION_DAYS', 30),
         max_backups=getattr(settings, 'BACKUP_MAX_COUNT', 50)
     )
@@ -81,6 +98,8 @@ def cmd_create(args):
         
     except Exception as e:
         logger.error(f"✗ Backup failed: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -149,6 +168,8 @@ def cmd_restore(args):
         
     except Exception as e:
         logger.error(f"✗ Restore failed: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -169,6 +190,8 @@ def cmd_verify(args):
             
     except Exception as e:
         logger.error(f"✗ Verification failed: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -190,6 +213,8 @@ def cmd_delete(args):
         
     except Exception as e:
         logger.error(f"✗ Deletion failed: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -212,6 +237,8 @@ def cmd_stats(args):
         
     except Exception as e:
         logger.error(f"✗ Failed to get stats: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 

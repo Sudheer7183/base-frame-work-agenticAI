@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'agentic-ai-platform'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+# scrape_configs:
+#   # FastAPI application metrics
+#   - job_name: 'agentic-ai-api'
+#     static_configs:
+#       - targets: ['host.docker.internal:8000']  # Adjust if backend is in Docker
+#     metrics_path: '/metrics'
+#     scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'agentic-ai-api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']  # Update this
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # PostgreSQL metrics (if using postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']

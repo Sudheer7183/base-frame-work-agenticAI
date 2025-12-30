@@ -1,0 +1,13 @@
+{
+  "backup_id": "full_20251230_112756",
+  "backup_type": "full",
+  "timestamp": "2025-12-30T11:27:56.928072",
+  "status": "failed",
+  "schemas": [
+    "*"
+  ],
+  "size_bytes": 0,
+  "file_path": "/mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backups/full_20251230_112756.sql",
+  "error_message": "pg_dump: error: connection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n",
+  "duration_seconds": 0.08102
+}
