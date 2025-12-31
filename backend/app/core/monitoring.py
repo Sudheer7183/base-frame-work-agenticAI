@@ -26,6 +26,46 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import time
+
+class MonitoringMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to automatically record HTTP request metrics
+    """
+    
+    def __init__(self, app, monitoring):
+        super().__init__(app)
+        self.monitoring = monitoring
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
+        """Record metrics for each HTTP request"""
+        
+        # Skip metrics endpoint itself to avoid recursion
+        if request.url.path == "/metrics":
+            return await call_next(request)
+        
+        # Record start time
+        start_time = time.time()
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Calculate duration
+        duration = time.time() - start_time
+        
+        # Record metrics
+        self.monitoring.metrics.record_http_request(
+            method=request.method,
+            endpoint=request.url.path,
+            status=response.status_code,
+            duration=duration
+        )
+        
+        return response
+
 class MetricsCollector:
     """
     Prometheus metrics collector
@@ -374,19 +414,40 @@ class MonitoringManager:
 _monitoring: Optional[MonitoringManager] = None
 
 
+# def init_monitoring(
+#     service_name: str = "agentic-ai-platform",
+#     metrics_enabled: bool = True,
+#     tracing_enabled: bool = True
+# ):
+#     """Initialize monitoring system"""
+#     global _monitoring
+#     _monitoring = MonitoringManager(
+#         service_name=service_name,
+#         metrics_enabled=metrics_enabled,
+#         tracing_enabled=tracing_enabled
+#     )
+#     logger.info("Monitoring system initialized")
+
 def init_monitoring(
     service_name: str = "agentic-ai-platform",
     metrics_enabled: bool = True,
     tracing_enabled: bool = True
 ):
-    """Initialize monitoring system"""
+    """Initialize monitoring system (idempotent - safe to call multiple times)"""
     global _monitoring
+    
+    # If already initialized, return existing instance
+    if _monitoring is not None:
+        logger.debug("Monitoring already initialized")
+        return _monitoring
+    
     _monitoring = MonitoringManager(
         service_name=service_name,
         metrics_enabled=metrics_enabled,
         tracing_enabled=tracing_enabled
     )
     logger.info("Monitoring system initialized")
+    return _monitoring
 
 
 def get_monitoring() -> MonitoringManager:

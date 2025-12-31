@@ -17,18 +17,13 @@ rule_files:
   - "alerts.yml"
 
 # Scrape configurations
-# scrape_configs:
-#   # FastAPI application metrics
-#   - job_name: 'agentic-ai-api'
-#     static_configs:
-#       - targets: ['host.docker.internal:8000']  # Adjust if backend is in Docker
-#     metrics_path: '/metrics'
-#     scrape_interval: 10s
-
 scrape_configs:
+  # FastAPI application metrics
   - job_name: 'agentic-ai-api'
     static_configs:
-      - targets: ['host.docker.internal:8000']  # Update this
+      - targets: ['172.25.175.88:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'

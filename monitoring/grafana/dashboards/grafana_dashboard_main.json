@@ -1,202 +1,311 @@
 {
-  "dashboard": {
-    "title": "Agentic AI Platform - Main Dashboard",
-    "tags": ["agentic-ai", "monitoring"],
-    "timezone": "browser",
-    "panels": [
-      {
-        "id": 1,
-        "title": "HTTP Request Rate",
-        "type": "graph",
-        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "rate(http_requests_total[5m])",
-            "legendFormat": "{{method}} {{endpoint}} - {{status}}"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Requests/sec"},
-          {"format": "short"}
-        ]
+  "title": "Agentic AI Platform - Main Dashboard",
+  "tags": [
+    "agentic-ai",
+    "monitoring"
+  ],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
       },
-      {
-        "id": 2,
-        "title": "HTTP Request Duration (p95)",
-        "type": "graph",
-        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-            "legendFormat": "{{method}} {{endpoint}} p95"
-          }
-        ],
-        "yaxes": [
-          {"format": "s", "label": "Duration"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "id": 3,
-        "title": "Agent Execution Success Rate",
-        "type": "graph",
-        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "sum(rate(agent_executions_total{status=\"completed\"}[5m])) / sum(rate(agent_executions_total[5m])) * 100",
-            "legendFormat": "Success Rate %"
-          }
-        ],
-        "yaxes": [
-          {"format": "percent", "label": "Success Rate", "min": 0, "max": 100},
-          {"format": "short"}
-        ]
-      },
-      {
-        "id": 4,
-        "title": "Agent Execution Duration",
-        "type": "graph",
-        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.50, rate(agent_execution_duration_seconds_bucket[5m]))",
-            "legendFormat": "{{agent_name}} p50"
-          },
-          {
-            "expr": "histogram_quantile(0.95, rate(agent_execution_duration_seconds_bucket[5m]))",
-            "legendFormat": "{{agent_name}} p95"
-          },
-          {
-            "expr": "histogram_quantile(0.99, rate(agent_execution_duration_seconds_bucket[5m]))",
-            "legendFormat": "{{agent_name}} p99"
-          }
-        ],
-        "yaxes": [
-          {"format": "s", "label": "Duration"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "id": 5,
-        "title": "HITL Records Status",
-        "type": "stat",
-        "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4},
-        "targets": [
-          {
-            "expr": "hitl_pending_count",
-            "legendFormat": "Pending HITL Records"
-          }
-        ],
-        "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"]
-          },
-          "colorMode": "value",
-          "graphMode": "area",
-          "orientation": "auto",
-          "textMode": "value_and_name"
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{method}} {{endpoint}} - {{status}}"
         }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Duration (p95)",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
       },
-      {
-        "id": 6,
-        "title": "HITL Records by Priority",
-        "type": "piechart",
-        "gridPos": {"x": 6, "y": 16, "w": 6, "h": 8},
-        "targets": [
-          {
-            "expr": "sum by (priority) (hitl_records_total)",
-            "legendFormat": "{{priority}}"
-          }
-        ]
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{method}} {{endpoint}} p95"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Duration"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Agent Execution Success Rate",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
       },
-      {
-        "id": 7,
-        "title": "Tool Execution Success Rate",
-        "type": "graph",
-        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "sum by (tool_name) (rate(tool_executions_total{status=\"success\"}[5m])) / sum by (tool_name) (rate(tool_executions_total[5m])) * 100",
-            "legendFormat": "{{tool_name}}"
-          }
-        ],
-        "yaxes": [
-          {"format": "percent", "label": "Success Rate", "min": 0, "max": 100},
-          {"format": "short"}
-        ]
+      "targets": [
+        {
+          "expr": "sum(rate(agent_executions_total{status=\"completed\"}[5m])) / sum(rate(agent_executions_total[5m])) * 100",
+          "legendFormat": "Success Rate %"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Success Rate",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Agent Execution Duration",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
       },
-      {
-        "id": 8,
-        "title": "Cache Hit Rate",
-        "type": "graph",
-        "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100",
-            "legendFormat": "Cache Hit Rate %"
-          }
-        ],
-        "yaxes": [
-          {"format": "percent", "label": "Hit Rate", "min": 0, "max": 100},
-          {"format": "short"}
-        ]
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(agent_execution_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{agent_name}} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(agent_execution_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{agent_name}} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(agent_execution_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{agent_name}} p99"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Duration"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "HITL Records Status",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 6,
+        "h": 4
       },
-      {
-        "id": 9,
-        "title": "Active Agent Executions",
-        "type": "graph",
-        "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "sum(agent_executions_total{status=\"running\"})",
-            "legendFormat": "Active Executions"
-          }
-        ],
-        "yaxes": [
-          {"format": "short", "label": "Count"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "id": 10,
-        "title": "Database Query Duration",
-        "type": "graph",
-        "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))",
-            "legendFormat": "p95"
-          },
-          {
-            "expr": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket[5m]))",
-            "legendFormat": "p99"
-          }
-        ],
-        "yaxes": [
-          {"format": "s", "label": "Duration"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "id": 11,
-        "title": "Error Rate by Endpoint",
-        "type": "graph",
-        "gridPos": {"x": 12, "y": 32, "w": 12, "h": 8},
-        "targets": [
-          {
-            "expr": "sum by (endpoint) (rate(http_requests_total{status=~\"5..\"}[5m]))",
-            "legendFormat": "{{endpoint}}"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Errors/sec"},
-          {"format": "short"}
-        ]
+      "targets": [
+        {
+          "expr": "hitl_pending_count",
+          "legendFormat": "Pending HITL Records"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "textMode": "value_and_name"
       }
-    ],
-    "refresh": "10s",
-    "schemaVersion": 30,
-    "version": 1
-  }
+    },
+    {
+      "id": 6,
+      "title": "HITL Records by Priority",
+      "type": "piechart",
+      "gridPos": {
+        "x": 6,
+        "y": 16,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (priority) (hitl_records_total)",
+          "legendFormat": "{{priority}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Tool Execution Success Rate",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (tool_name) (rate(tool_executions_total{status=\"success\"}[5m])) / sum by (tool_name) (rate(tool_executions_total[5m])) * 100",
+          "legendFormat": "{{tool_name}}"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Success Rate",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Cache Hit Rate",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100",
+          "legendFormat": "Cache Hit Rate %"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Hit Rate",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Active Agent Executions",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(agent_executions_total{status=\"running\"})",
+          "legendFormat": "Active Executions"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Count"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Database Query Duration",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Duration"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Error Rate by Endpoint",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(http_requests_total{status=~\"5..\"}[5m]))",
+          "legendFormat": "{{endpoint}}"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Errors/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 30,
+  "version": 1
 }

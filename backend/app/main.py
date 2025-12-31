@@ -56,6 +56,11 @@ from app.backup import backup_routes
 
 #metrics route
 from app.api.metrics import router as metrics_router
+from app.core.monitoring import MonitoringMiddleware, init_monitoring, get_monitoring
+
+init_monitoring()
+
+monitoring = get_monitoring()
 
 # Setup logging
 setup_logging(settings.LOG_LEVEL)
@@ -93,6 +98,8 @@ app.add_middleware(
     expose_headers=["X-Tenant-Slug"],
 )
 
+app.add_middleware(MonitoringMiddleware, monitoring=monitoring)
+
 # Add tenant middleware (AFTER CORS)
 app.add_middleware(
     TenantMiddleware,
@@ -101,6 +108,8 @@ app.add_middleware(
         "/docs",
         "/redoc",
         "/openapi.json",
+        "/metrics",
+        "/health", 
     }
 )
 
