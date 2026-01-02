@@ -58,6 +58,10 @@ from app.backup import backup_routes
 from app.api.metrics import router as metrics_router
 from app.core.monitoring import MonitoringMiddleware, init_monitoring, get_monitoring
 
+#Computational audit logging
+
+from app.api.v1 import cost_analytics_api
+
 init_monitoring()
 
 monitoring = get_monitoring()
@@ -110,6 +114,7 @@ app.add_middleware(
         "/openapi.json",
         "/metrics",
         "/health", 
+        "api/v1/cost-analytics/health"
     }
 )
 
@@ -141,7 +146,11 @@ app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
 app.include_router(metrics_router)
 
-
+app.include_router(
+    cost_analytics_api.router,
+    prefix="/api/v1",
+    tags=["cost-analytics"]
+)
 # @app.on_event("startup")
 # async def startup_event():
 #     """Run on application startup."""
