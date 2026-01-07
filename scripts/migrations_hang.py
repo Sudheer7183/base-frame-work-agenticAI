@@ -13,7 +13,7 @@ from alembic.config import Config
 from alembic import command
 
 DB_URL = "postgresql://postgres:postgres@localhost:5433/agenticbase2"
-schema_name = "test_migration_hang1"
+schema_name = "test_migration_hang2"
 
 print("=" * 60)
 print("TESTING IF MIGRATIONS COMPLETE OR HANG")

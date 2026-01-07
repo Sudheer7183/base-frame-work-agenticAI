@@ -1,0 +1,80 @@
+{
+  "common": {
+    "app": {
+      "title": "Agentic AI Platform",
+      "subtitle": "Intelligent Agent Management"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "tenants": "Tenants",
+      "users": "Users",
+      "agents": "Agents",
+      "workflows": "Workflows",
+      "settings": "Settings"
+    },
+    "actions": {
+      "create": "Create",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "refresh": "Refresh",
+      "search": "Search",
+      "filter": "Filter",
+      "export": "Export",
+      "import": "Import"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "pending": "Pending",
+      "suspended": "Suspended",
+      "archived": "Archived"
+    },
+    "messages": {
+      "loading": "Loading...",
+      "saving": "Saving...",
+      "success": "Success",
+      "error": "An error occurred",
+      "noData": "No data available",
+      "confirm": "Are you sure?"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "tenants": "Tenants",
+    "users": "Users",
+    "agents": "Agents",
+    "workflows": "Workflows"
+  },
+  "admin": {
+    "tenant": {
+      "title": "Tenant Management",
+      "subtitle": "Manage organization tenants",
+      "create": "Create Tenant",
+      "edit": "Edit Tenant",
+      "delete": "Delete Tenant",
+      "fields": {
+        "name": "Name",
+        "slug": "Slug",
+        "status": "Status",
+        "created": "Created",
+        "updated": "Updated",
+        "agents": "Agents",
+        "users": "Users"
+      }
+    },
+    "user": {
+      "title": "User Management",
+      "subtitle": "Manage users",
+      "invite": "Invite User",
+      "create": "Create User"
+    },
+    "agent": {
+      "title": "Agent Management",
+      "subtitle": "Manage AI agents",
+      "create": "Create Agent",
+      "builder": "Agent Builder"
+    }
+  }
+}

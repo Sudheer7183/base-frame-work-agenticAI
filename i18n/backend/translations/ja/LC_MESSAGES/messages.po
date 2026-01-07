@@ -1,0 +1,153 @@
+# Japanese translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-01-07 06:10+0000\n"
+"PO-Revision-Date: 2026-01-07 06:12+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:349
+msgid "Active"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:350
+msgid "Suspended"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:351
+msgid "Pending"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:352
+msgid "Inactive"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:353
+msgid "Archived"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:410
+#, python-brace-format
+msgid "Tenant '{name}' created successfully"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:419
+#, python-brace-format
+msgid "Invalid tenant data: {error}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:424
+#, python-brace-format
+msgid "Failed to create tenant: {error}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:445
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:530
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:568
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:593
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:640
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:698
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:766
+#, python-brace-format
+msgid "Tenant '{slug}' not found"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:521
+#, python-brace-format
+msgid "Tenant '{name}' updated successfully"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:535
+#, python-brace-format
+msgid "Failed to update tenant: {error}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:554
+#, python-brace-format
+msgid "Tenant '{name}' suspended. Reason: {reason}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:559
+#, python-brace-format
+msgid "Tenant '{name}' suspended"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:584
+#, python-brace-format
+msgid "Tenant '{name}' activated successfully"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:618
+#, python-brace-format
+msgid "Tenant '{slug}' deprovisioned successfully. Schema deleted after backup."
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:622
+#, python-brace-format
+msgid "Tenant '{slug}' deprovisioned successfully. Schema deleted (no backup)."
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:626
+#, python-brace-format
+msgid "Tenant '{slug}' deprovisioned successfully. Schema preserved."
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:645
+#, python-brace-format
+msgid "Failed to deprovision tenant: {error}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:672
+msgid "Tenant Summary"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:684
+msgid "Not set"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:685
+msgid "Unlimited"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:727
+#, python-brace-format
+msgid "Statistics for {name}"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:730
+msgid "Users"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:735
+msgid "Agents"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:742
+msgid "Workflows"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:747
+msgid "Tasks Completed"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:752
+msgid "Storage Used"
+msgstr ""
+
+#: /mnt/d/sudheer/new-base-platform-agentiai/agentic-ai-platform-v1.3-complete/backend/app/tenancy/api.py:754
+#, python-brace-format
+msgid "{size} MB"
+msgstr ""
+

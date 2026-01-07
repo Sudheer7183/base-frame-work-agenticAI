@@ -1,0 +1,8 @@
+Collecting babel
+  Using cached babel-2.17.0-py3-none-any.whl.metadata (2.0 kB)
+Collecting python-babel
+  Downloading python_babel-0.0.0.dev0-py3-none-any.whl.metadata (743 bytes)
+Using cached babel-2.17.0-py3-none-any.whl (10.2 MB)
+Downloading python_babel-0.0.0.dev0-py3-none-any.whl (2.6 kB)
+Installing collected packages: python-babel, babel
+Successfully installed babel-2.17.0 python-babel-0.0.0.dev0

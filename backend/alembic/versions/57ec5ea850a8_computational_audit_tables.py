@@ -30,8 +30,9 @@ def upgrade():
     
     # Get the current schema context from Alembic
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
+
     schema = context.get_context().version_table_schema
-    
     print(f"[Migration {revision}] Running for schema: {schema or 'public'}")
     
     # =========================================================================

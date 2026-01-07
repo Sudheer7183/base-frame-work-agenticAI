@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Agentic AI Platform",
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update",
+    "close": "Close",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "export": "Export",
+    "import": "Import",
+    "actions": "Actions",
+    "status": "Status",
+    "name": "Name",
+    "description": "Description",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information"
+  },
+  "admin": {
+    "title": "Tenant Administration",
+    "subtitle": "Multi-tenant management console",
+    "dashboard": {
+      "title": "Dashboard",
+      "totalTenants": "Total Tenants",
+      "activeTenants": "Active",
+      "suspendedTenants": "Suspended",
+      "totalUsers": "Total Users"
+    },
+    "tenants": {
+      "title": "Tenants",
+      "create": "New Tenant",
+      "list": "Tenant List",
+      "details": "Tenant Details"
+    }
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "network": "Network error. Please check your connection.",
+    "unauthorized": "Unauthorized. Please log in.",
+    "forbidden": "You don't have permission to access this resource.",
+    "notFound": "Resource not found.",
+    "validation": "Validation error. Please check your input.",
+    "serverError": "Server error. Please try again later."
+  }
+}

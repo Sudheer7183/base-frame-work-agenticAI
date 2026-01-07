@@ -1,6 +1,6 @@
 """Agent models for the Agentic AI Platform"""
 
-from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -63,13 +63,13 @@ class AgentExecutionLog(Base):
     output_data = Column(JSON, nullable=True)
     error = Column(Text, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-    started_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
-    started_at = Column(JSON, nullable=False, server_default='CURRENT_TIMESTAMP')
-    completed_at = Column(JSON, nullable=True)
+    started_by =  Column(String(255), nullable=True)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
     
     # Relationships
     agent = relationship("AgentConfig", back_populates="execution_logs")
-    user = relationship("User")
+    # user = relationship("User")
     
     def to_dict(self):
         """Convert to dictionary"""

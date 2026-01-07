@@ -1,0 +1,230 @@
+# =============================================================================
+# Translation Namespaces Configuration
+# =============================================================================
+# Defines logical groupings of translations for better organization
+# Version: 3.0
+
+version: "3.0"
+
+# Default namespace
+default: "common"
+
+# Namespace Definitions
+namespaces:
+  - name: "common"
+    description: "Common UI elements and actions used across all components"
+    priority: 1
+    required: true
+    keys:
+      - appName
+      - welcome
+      - loading
+      - save
+      - cancel
+      - delete
+      - edit
+      - create
+      - update
+      - close
+      - confirm
+      - yes
+      - no
+      - back
+      - next
+      - previous
+      - search
+      - filter
+      - refresh
+      - export
+      - import
+      - actions
+      - status
+      - name
+      - description
+      - createdAt
+      - updatedAt
+      - success
+      - error
+      - warning
+      - info
+    
+  - name: "admin"
+    description: "Tenant administration interface"
+    priority: 2
+    required: true
+    sections:
+      - dashboard
+      - tenants
+      - users
+      - settings
+      - stats
+    
+  - name: "agents"
+    description: "Agent management and configuration"
+    priority: 2
+    required: true
+    sections:
+      - list
+      - create
+      - edit
+      - execute
+      - workflow
+      - config
+    
+  - name: "hitl"
+    description: "Human-in-the-Loop console"
+    priority: 2
+    required: true
+    sections:
+      - pending
+      - review
+      - approve
+      - reject
+      - filters
+      - stats
+    
+  - name: "errors"
+    description: "Error messages and validation"
+    priority: 1
+    required: true
+    keys:
+      - generic
+      - network
+      - unauthorized
+      - forbidden
+      - notFound
+      - validation
+      - serverError
+      - connectionError
+    
+  - name: "auth"
+    description: "Authentication and authorization"
+    priority: 2
+    required: false
+    keys:
+      - login
+      - logout
+      - register
+      - forgotPassword
+      - resetPassword
+      - changePassword
+      - profile
+    
+  - name: "workflows"
+    description: "Workflow management"
+    priority: 3
+    required: false
+    sections:
+      - types
+      - sequential
+      - parallel
+      - hierarchical
+      - custom
+    
+  - name: "monitoring"
+    description: "System monitoring and metrics"
+    priority: 3
+    required: false
+    sections:
+      - dashboard
+      - metrics
+      - logs
+      - alerts
+    
+  - name: "notifications"
+    description: "System notifications"
+    priority: 3
+    required: false
+    keys:
+      - success
+      - error
+      - warning
+      - info
+      - email
+      - push
+
+# Namespace Loading Strategy
+loading:
+  # Preload these namespaces on application start
+  preload:
+    - common
+    - errors
+  
+  # Lazy load these namespaces when needed
+  lazy:
+    - workflows
+    - monitoring
+    - notifications
+  
+  # Always load with any namespace
+  always:
+    - common
+
+# Platform-Specific Namespaces
+platform_mappings:
+  backend:
+    # Backend uses fewer namespaces (API responses, emails)
+    active:
+      - common
+      - errors
+      - auth
+      - notifications
+      
+  react:
+    # React admin dashboard uses most namespaces
+    active:
+      - common
+      - admin
+      - agents
+      - auth
+      - errors
+      - workflows
+      - monitoring
+      
+  streamlit:
+    # Streamlit HITL interface uses focused set
+    active:
+      - common
+      - hitl
+      - agents
+      - errors
+      - notifications
+
+# Namespace Organization Rules
+rules:
+  # Maximum nesting depth for keys
+  max_nesting: 4
+  
+  # Naming conventions
+  naming_convention: "camelCase"
+  
+  # Key separator for nested keys
+  separator: "."
+  
+  # Allow interpolation variables
+  allow_interpolation: true
+  
+  # Variable format
+  interpolation_format: "{{variable}}"
+
+# Validation Rules
+validation:
+  # Require all keys to have values
+  require_all_keys: true
+  
+  # Check for unused translations
+  detect_unused: true
+  
+  # Check for missing translations
+  detect_missing: true
+  
+  # Verify interpolation variables match
+  verify_variables: true
+
+# Metadata
+metadata:
+  total_namespaces: 9
+  required_namespaces: 5
+  optional_namespaces: 4
+  version: "3.0"
+  last_updated: "2026-01-01"

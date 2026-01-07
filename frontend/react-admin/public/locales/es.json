@@ -1,0 +1,80 @@
+{
+  "common": {
+    "app": {
+      "title": "Plataforma de IA Agéntica",
+      "subtitle": "Gestión Inteligente de Agentes"
+    },
+    "nav": {
+      "dashboard": "Tablero",
+      "tenants": "Inquilinos",
+      "users": "Usuarios",
+      "agents": "Agentes",
+      "workflows": "Flujos de Trabajo",
+      "settings": "Configuración"
+    },
+    "actions": {
+      "create": "Crear",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "refresh": "Actualizar",
+      "search": "Buscar",
+      "filter": "Filtrar",
+      "export": "Exportar",
+      "import": "Importar"
+    },
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "pending": "Pendiente",
+      "suspended": "Suspendido",
+      "archived": "Archivado"
+    },
+    "messages": {
+      "loading": "Cargando...",
+      "saving": "Guardando...",
+      "success": "Éxito",
+      "error": "Ocurrió un error",
+      "noData": "No hay datos disponibles",
+      "confirm": "¿Está seguro?"
+    }
+  },
+  "navigation": {
+    "dashboard": "Tablero",
+    "tenants": "Inquilinos",
+    "users": "Usuarios",
+    "agents": "Agentes",
+    "workflows": "Flujos de Trabajo"
+  },
+  "admin": {
+    "tenant": {
+      "title": "Gestión de Inquilinos",
+      "subtitle": "Administrar inquilinos de la organización",
+      "create": "Crear Inquilino",
+      "edit": "Editar Inquilino",
+      "delete": "Eliminar Inquilino",
+      "fields": {
+        "name": "Nombre",
+        "slug": "Identificador",
+        "status": "Estado",
+        "created": "Creado",
+        "updated": "Actualizado",
+        "agents": "Agentes",
+        "users": "Usuarios"
+      }
+    },
+    "user": {
+      "title": "Gestión de Usuarios",
+      "subtitle": "Administrar usuarios",
+      "invite": "Invitar Usuario",
+      "create": "Crear Usuario"
+    },
+    "agent": {
+      "title": "Gestión de Agentes",
+      "subtitle": "Administrar agentes de IA",
+      "create": "Crear Agente",
+      "builder": "Constructor de Agentes"
+    }
+  }
+}

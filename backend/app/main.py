@@ -62,7 +62,19 @@ from app.core.monitoring import MonitoringMiddleware, init_monitoring, get_monit
 
 from app.api.v1 import cost_analytics_api
 
+
+# i18n imports
+import sys
+from pathlib import Path
+i18n_path = Path(__file__).parent.parent.parent / "i18n"
+sys.path.insert(0, str(i18n_path))
+
+from backend.core.i18n import init_i18n, get_available_locales
+from backend.core.middleware import LocaleMiddleware
+
+
 init_monitoring()
+
 
 monitoring = get_monitoring()
 
@@ -78,6 +90,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+init_i18n()
 
 # Configure CORS (MUST be first)
 # app.add_middleware(
@@ -103,7 +116,6 @@ app.add_middleware(
 )
 
 app.add_middleware(MonitoringMiddleware, monitoring=monitoring)
-
 # Add tenant middleware (AFTER CORS)
 app.add_middleware(
     TenantMiddleware,
@@ -117,6 +129,9 @@ app.add_middleware(
         "api/v1/cost-analytics/health"
     }
 )
+
+app.add_middleware(LocaleMiddleware)
+
 
 # Register exception handlers
 register_exception_handlers(app)

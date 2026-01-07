@@ -391,7 +391,7 @@ import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import UserManagementTable from './components/UserManagementTable';
 
 import AgentBuilder from './components/AgentBuilder/AgentBuilder';
-
+import { Layout } from './components/Layout';
 function MainLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -544,6 +544,7 @@ function AppContent() {
           ) : (
             <ProtectedRoute requireAdmin={true}>
               <MainLayout>
+                <Layout>
                 <Routes>
                   <Route path="tenants" element={<TenantAdminInterface />} />
                   <Route path="users" element={<UserManagementTable />} />
@@ -553,6 +554,7 @@ function AppContent() {
                   <Route path="agents/:id/edit" element={<AgentBuilder />} />
                   <Route index element={<Navigate to="tenants" replace />} />
                 </Routes>
+                </Layout>
               </MainLayout>
             </ProtectedRoute>
           )

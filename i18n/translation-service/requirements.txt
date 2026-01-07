@@ -1,0 +1,20 @@
+# Translation Service Requirements (Optional Add-on)
+# Install only what you need based on your chosen provider
+
+# Base requirements (always needed)
+click>=8.1.0
+requests>=2.31.0
+
+# Provider-specific requirements (install as needed):
+
+# Google Cloud Translation
+# google-cloud-translate>=3.12.0
+
+# DeepL
+# deepl>=1.16.0
+
+# LibreTranslate (no additional requirements - uses HTTP API)
+
+# Development
+# pytest>=7.4.0
+# pytest-cov>=4.1.0

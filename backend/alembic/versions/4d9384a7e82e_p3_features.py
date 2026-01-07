@@ -39,16 +39,12 @@ def upgrade() -> None:
     # -------------------------------------------------------------------------
     conn = op.get_bind()
     inspector = sa.inspect(conn)
-    if 'workflow_templates' in inspector.get_table_names(schema='public'):
-        print(f"[Migration {revision}] Table already exists, skipping")
-        return
+    public_tables = inspector.get_table_names(schema='public')
 
-    elif 'sso_configurations' in inspector.get_table_names(schema='public'):
-        print(f"[Migration {revision}] Table already exists, skipping")
-        return
-
-    elif 'ai_models' in inspector.get_table_names(schema="public"):
-        print(f"[Migration {revision}] Table already exists, skipping")
+    # Check if ALL expected tables exist
+    expected_tables = ['workflow_templates', 'sso_configurations', 'ai_models']
+    if all(table in public_tables for table in expected_tables):
+        print(f"[Migration {revision}] All tables already exist, skipping")
         return
 
     

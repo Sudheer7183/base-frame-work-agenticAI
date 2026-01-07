@@ -1,0 +1,176 @@
+# Spanish translations for Tenant Management API
+# This file should be placed at: i18n/backend/translations/es/LC_MESSAGES/messages.po
+
+msgid ""
+msgstr ""
+"Project-Id-Version: Agentic AI Platform 1.0\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ============================================================================
+# Tenant Status Translations
+# ============================================================================
+
+msgid "Active"
+msgstr "Activo"
+
+msgid "Suspended"
+msgstr "Suspendido"
+
+msgid "Pending"
+msgstr "Pendiente"
+
+msgid "Inactive"
+msgstr "Inactivo"
+
+msgid "Archived"
+msgstr "Archivado"
+
+msgid "Provisioning"
+msgstr "Aprovisionando"
+
+msgid "provisioning"
+msgstr "Aprovisionando"
+
+msgid "active"
+msgstr "Activo"
+
+msgid "suspended"
+msgstr "Suspendido"
+
+msgid "pending"
+msgstr "Pendiente"
+
+msgid "inactive"
+msgstr "Inactivo"
+
+# ============================================================================
+# Success Messages
+# ============================================================================
+
+msgid "Tenant '{name}' created successfully"
+msgstr "Inquilino '{name}' creado exitosamente"
+
+msgid "Tenant '{name}' updated successfully"
+msgstr "Inquilino '{name}' actualizado exitosamente"
+
+msgid "Tenant '{name}' suspended"
+msgstr "Inquilino '{name}' suspendido"
+
+msgid "Tenant '{name}' suspended. Reason: {reason}"
+msgstr "Inquilino '{name}' suspendido. Razón: {reason}"
+
+msgid "Tenant '{name}' activated successfully"
+msgstr "Inquilino '{name}' activado exitosamente"
+
+msgid "Tenant '{slug}' deprovisioned successfully. Schema deleted after backup."
+msgstr "Inquilino '{slug}' desaprovisionado exitosamente. Esquema eliminado después de copia de seguridad."
+
+msgid "Tenant '{slug}' deprovisioned successfully. Schema deleted (no backup)."
+msgstr "Inquilino '{slug}' desaprovisionado exitosamente. Esquema eliminado (sin copia de seguridad)."
+
+msgid "Tenant '{slug}' deprovisioned successfully. Schema preserved."
+msgstr "Inquilino '{slug}' desaprovisionado exitosamente. Esquema preservado."
+
+# ============================================================================
+# Error Messages
+# ============================================================================
+
+msgid "Tenant '{slug}' not found"
+msgstr "Inquilino '{slug}' no encontrado"
+
+msgid "Invalid tenant data: {error}"
+msgstr "Datos de inquilino inválidos: {error}"
+
+msgid "Failed to create tenant: {error}"
+msgstr "Error al crear inquilino: {error}"
+
+msgid "Failed to update tenant: {error}"
+msgstr "Error al actualizar inquilino: {error}"
+
+msgid "Failed to deprovision tenant: {error}"
+msgstr "Error al desaprovisionar inquilino: {error}"
+
+# ============================================================================
+# List Messages (THESE ARE CRITICAL FOR YOUR API)
+# ============================================================================
+
+msgid "Found {n} tenant"
+msgid_plural "Found {n} tenants"
+msgstr[0] "Se encontró {n} inquilino"
+msgstr[1] "Se encontraron {n} inquilinos"
+
+msgid "{n} tenant"
+msgid_plural "{n} tenants"
+msgstr[0] "{n} inquilino"
+msgstr[1] "{n} inquilinos"
+
+msgid "Found {n} {status} tenant"
+msgid_plural "Found {n} {status} tenants"
+msgstr[0] "Se encontró {n} inquilino {status}"
+msgstr[1] "Se encontraron {n} inquilinos {status}"
+
+# ============================================================================
+# Additional UI Strings
+# ============================================================================
+
+msgid "Not set"
+msgstr "No establecido"
+
+msgid "Unlimited"
+msgstr "Ilimitado"
+
+msgid "Tenant Summary"
+msgstr "Resumen del Inquilino"
+
+msgid "Statistics for {name}"
+msgstr "Estadísticas de {name}"
+
+msgid "Users"
+msgstr "Usuarios"
+
+msgid "Agents"
+msgstr "Agentes"
+
+msgid "Workflows"
+msgstr "Flujos de Trabajo"
+
+msgid "Tasks Completed"
+msgstr "Tareas Completadas"
+
+msgid "Storage Used"
+msgstr "Almacenamiento Usado"
+
+msgid "{size} MB"
+msgstr "{size} MB"
+
+# ============================================================================
+# Field Labels
+# ============================================================================
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Slug"
+msgstr "Identificador"
+
+msgid "Status"
+msgstr "Estado"
+
+msgid "Created"
+msgstr "Creado"
+
+msgid "Updated"
+msgstr "Actualizado"
+
+msgid "Description"
+msgstr "Descripción"
+
+msgid "Admin Email"
+msgstr "Correo del Administrador"
+
+msgid "Max Users"
+msgstr "Máximo de Usuarios"

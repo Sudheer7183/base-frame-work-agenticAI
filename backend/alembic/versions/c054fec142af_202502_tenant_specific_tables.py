@@ -6,7 +6,7 @@ from sqlalchemy.sql import text
 from sqlalchemy.dialects import postgresql
 
 revision = "202502_tenant"
-down_revision = "202501_pub"
+down_revision = "cc968bca1084"
 branch_labels = None
 depends_on = None
 

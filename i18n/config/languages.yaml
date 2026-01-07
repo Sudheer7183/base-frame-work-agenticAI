@@ -1,0 +1,195 @@
+# =============================================================================
+# Language Configuration for Agentic AI Platform
+# =============================================================================
+# Version: 3.0
+# Last Updated: 2026-01-01
+
+version: "3.0"
+
+# Supported Languages
+languages:
+  - code: "en"
+    name: "English"
+    native_name: "English"
+    flag: "🇺🇸"
+    direction: "ltr"
+    plural_forms: 2
+    enabled: true
+    fallback: null
+    locale: "en_US"
+    description: "Default language for the platform"
+    
+  - code: "es"
+    name: "Spanish"
+    native_name: "Español"
+    flag: "🇪🇸"
+    direction: "ltr"
+    plural_forms: 2
+    enabled: true
+    fallback: "en"
+    locale: "es_ES"
+    description: "Spanish language support"
+    
+  - code: "fr"
+    name: "French"
+    native_name: "Français"
+    flag: "🇫🇷"
+    direction: "ltr"
+    plural_forms: 2
+    enabled: true
+    fallback: "en"
+    locale: "fr_FR"
+    description: "French language support"
+    
+  - code: "de"
+    name: "German"
+    native_name: "Deutsch"
+    flag: "🇩🇪"
+    direction: "ltr"
+    plural_forms: 2
+    enabled: true
+    fallback: "en"
+    locale: "de_DE"
+    description: "German language support"
+    
+  - code: "ar"
+    name: "Arabic"
+    native_name: "العربية"
+    flag: "🇸🇦"
+    direction: "rtl"
+    plural_forms: 6
+    enabled: true
+    fallback: "en"
+    locale: "ar_SA"
+    requires_rtl: true
+    description: "Arabic language with RTL support"
+    
+  - code: "ja"
+    name: "Japanese"
+    native_name: "日本語"
+    flag: "🇯🇵"
+    direction: "ltr"
+    plural_forms: 1
+    enabled: true
+    fallback: "en"
+    locale: "ja_JP"
+    description: "Japanese language support"
+    
+  - code: "zh"
+    name: "Chinese"
+    native_name: "中文"
+    flag: "🇨🇳"
+    direction: "ltr"
+    plural_forms: 1
+    enabled: true
+    fallback: "en"
+    locale: "zh_CN"
+    description: "Simplified Chinese support"
+
+# Language Groups for Management
+groups:
+  production:
+    - en
+    - es
+    - fr
+    - de
+    
+  beta:
+    - ar
+    - ja
+    - zh
+    
+  rtl:
+    - ar
+    
+  asian:
+    - ja
+    - zh
+    
+  european:
+    - en
+    - es
+    - fr
+    - de
+
+# Default Settings
+defaults:
+  language: "en"
+  
+  # Language Detection Order
+  detection_order:
+    - "querystring"    # ?locale=en
+    - "cookie"         # Cookie: locale=en
+    - "localStorage"   # localStorage.locale
+    - "header"         # Accept-Language header
+    - "navigator"      # Browser navigator.language
+  
+  # Cache Settings
+  cache:
+    enabled: true
+    ttl: 3600  # 1 hour in seconds
+    
+  # Fallback Behavior
+  fallback_behavior:
+    use_key_as_fallback: false  # Don't show translation keys
+    show_warnings: true         # Log missing translations
+    strict_mode: false          # Don't fail on missing translations
+
+# Platform-Specific Settings
+platforms:
+  backend:
+    domain: "messages"
+    directory: "translations"
+    file_extension: ".po"
+    compiled_extension: ".mo"
+    
+  react:
+    load_path: "/locales/{{lng}}/{{ns}}.json"
+    fallback_lng: "en"
+    preload: ["en"]
+    
+  streamlit:
+    session_key: "locale"
+    cookie_name: "st_locale"
+    default_namespace: "common"
+
+# Formatting Rules
+formatting:
+  date_formats:
+    short: "MMM DD, YYYY"
+    medium: "MMMM DD, YYYY"
+    long: "MMMM DD, YYYY HH:mm"
+    full: "dddd, MMMM DD, YYYY HH:mm:ss"
+    
+  number_formats:
+    decimal_separator: "."
+    thousands_separator: ","
+    
+  currency_formats:
+    default: "USD"
+    position: "prefix"  # prefix or suffix
+    
+  time_formats:
+    12_hour: false
+    show_seconds: false
+
+# Quality Assurance
+qa:
+  min_translation_completion: 80  # Minimum % for production
+  require_review: true
+  max_string_length: 500
+  
+  validation_rules:
+    - no_hardcoded_urls
+    - consistent_placeholders
+    - valid_html_tags
+    - proper_pluralization
+    - rtl_compatibility
+
+# Metadata
+metadata:
+  version: "3.0"
+  created: "2026-01-01"
+  updated: "2026-01-01"
+  maintainer: "Agentic AI Platform Team"
+  license: "MIT"

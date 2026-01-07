@@ -1,6 +1,7 @@
 """
 LangGraph Graph Builder
 Creates StateGraph instances with proper node connections
+FIXED: Properly routes to workflow based on agent config
 """
 
 import logging
@@ -17,6 +18,9 @@ from .nodes import (
     error_handler_node,
     tool_execution_node
 )
+
+# ✅ Import your custom agent
+from app.agent.data_ingestion_agent import DataIngestionAgent
 
 logger = logging.getLogger(__name__)
 
@@ -78,23 +82,110 @@ class GraphBuilder:
         return compiled
 
 
+def create_sample_agent_graph():
+    """
+    Build the retail inventory management workflow
+    
+    This workflow:
+    1. Ingests data from multiple sources (APIs, databases, spreadsheets)
+    2. Processes and normalizes the data
+    3. Returns structured output for downstream analysis
+    """
+    logger.info("Building retail agent graph")
+    
+    # Instantiate DataIngestionAgent
+    data_fetcher = DataIngestionAgent(uploaded_data={})
+
+    def sample_ingestion_node(state: AgentState) -> Dict[str, Any]:
+        """
+        Data Ingestion Node
+        
+        Fetches data from all external and internal sources
+        """
+        logger.info(f"Starting data ingestion for execution {state.get('execution_id', 'unknown')}")
+        
+        # 🟢 STEP 1: Fetch ALL data sources using DataIngestionAgent methods
+        
+        # External API Data
+        current_weather = data_fetcher.get_weather()
+        forecast = data_fetcher.get_weather_forecast()
+        festivals = data_fetcher.get_festival_events()
+        notes = data_fetcher.get_user_notes()
+        
+        # 🟢 STEP 2: Consolidate ALL fetched data
+        all_fetched_data = {
+            "weather": current_weather,
+            "weather_forecast": forecast,
+            "calendar_events": festivals,
+            "user_notes": notes,
+        }
+        
+        logger.info(f"Data ingestion completed. Collected data from {len(all_fetched_data)} sources")
+        
+        # 🟢 STEP 3: Return updated state with ingested data
+        return {
+            "ingestion": all_fetched_data,
+            "output_data": all_fetched_data,  # Set output for completion
+            "ingestion_complete": True
+        }
+    
+    # Build the graph
+    workflow = StateGraph(AgentState)
+    workflow.add_node("ingestion_node", sample_ingestion_node)
+    
+    # Set entry and exit
+    workflow.set_entry_point("ingestion_node")
+    workflow.add_edge("ingestion_node", END)
+    
+    logger.info("Retail agent graph built successfully")
+    
+    return workflow.compile(checkpointer=MemorySaver())
+
+
+def create_simple_chat_graph():
+    """Simple chat graph without tools"""
+    logger.info("Building simple chat graph")
+    
+    builder = GraphBuilder()
+    
+    builder.add_node("process", llm_processing_node)
+    builder.add_node("format", output_formatting_node)
+    
+    builder.set_entry_point("process")
+    builder.add_edge("process", "format")
+    builder.add_edge("format", END)
+    
+    return builder.compile()
+
+
+def create_hitl_approval_graph():
+    """Graph with mandatory HITL approval"""
+    logger.info("Building HITL approval graph")
+    
+    builder = GraphBuilder()
+    
+    builder.add_node("validate", input_validation_node)
+    builder.add_node("process", llm_processing_node)
+    builder.add_node("hitl", hitl_gate_node)
+    builder.add_node("format", output_formatting_node)
+    
+    builder.set_entry_point("validate")
+    builder.add_edge("validate", "process")
+    builder.add_edge("process", "hitl")
+    builder.add_edge("hitl", END)
+    builder.add_edge("format", END)
+    
+    return builder.compile()
+
+
 def create_agent_graph(agent_config: Dict[str, Any]):
     """
-    Create a standard agent graph based on configuration
+    OLD FUNCTION - kept for backward compatibility
     
-    Standard flow:
-    1. Input Validation
-    2. LLM Processing
-    3. Tool Execution (if needed)
-    4. HITL Gate
-    5. Output Formatting
-    
-    Args:
-        agent_config: Agent configuration dict
-        
-    Returns:
-        Compiled LangGraph
+    Creates a standard agent graph based on configuration
     """
+    logger.warning("create_agent_graph() is deprecated, use create_new_agent_graph()")
+    
     builder = GraphBuilder()
     
     # Add all nodes
@@ -113,10 +204,8 @@ def create_agent_graph(agent_config: Dict[str, Any]):
     
     # Conditional: Tools or HITL?
     def should_execute_tools(state: AgentState) -> str:
-        """Determine if tools need execution"""
         if state.get("error"):
             return "handle_error"
-        # Check if LLM requested tools
         last_message = state["messages"][-1] if state["messages"] else None
         if last_message and hasattr(last_message, "tool_calls") and last_message.tool_calls:
             return "execute_tools"
@@ -136,7 +225,6 @@ def create_agent_graph(agent_config: Dict[str, Any]):
     
     # Conditional: HITL required?
     def check_hitl_requirement(state: AgentState) -> str:
-        """Check if HITL is required"""
         if state.get("requires_hitl"):
             return "pause_for_hitl"
         return "format_output"
@@ -145,7 +233,7 @@ def create_agent_graph(agent_config: Dict[str, Any]):
         "hitl_gate",
         check_hitl_requirement,
         {
-            "pause_for_hitl": END,  # Pause execution
+            "pause_for_hitl": END,
             "format_output": "format_output"
         }
     )
@@ -153,41 +241,62 @@ def create_agent_graph(agent_config: Dict[str, Any]):
     builder.add_edge("format_output", END)
     builder.add_edge("handle_error", END)
     
-    # Compile with checkpointer for state persistence
+    # Compile with checkpointer
     from .checkpointer import get_checkpointer
     checkpointer = get_checkpointer()
     
     return builder.compile(checkpointer=checkpointer)
 
 
-# Pre-built graph templates
-def create_simple_chat_graph():
-    """Simple chat graph without tools"""
-    builder = GraphBuilder()
+def create_new_agent_graph(agent_config: Dict[str, Any]):
+    """
+    ✅ NEW FUNCTION - Main entry point for graph creation
     
-    builder.add_node("process", llm_processing_node)
-    builder.add_node("format", output_formatting_node)
+    Creates agent graph based on workflow type from agent config
     
-    builder.set_entry_point("process")
-    builder.add_edge("process", "format")
-    builder.add_edge("format", END)
+    Args:
+        agent_config: Agent configuration dict with 'workflow' key
+        
+    Returns:
+        Compiled LangGraph
+        
+    Raises:
+        ValueError: If workflow type is unknown
+    """
+    # Extract workflow type from config
+    print("agent config type",type(agent_config))
+    workflow_type = agent_config.workflow
+    print("workflow type",workflow_type)
+    logger.info(f"Creating graph for workflow type: '{workflow_type}'")
     
-    return builder.compile()
+    # Route to appropriate workflow builder
+    if workflow_type == "sample_ingestion_decision":
+        return create_sample_agent_graph()
+    
+    
+    elif workflow_type == "simple_chat":
+        return create_simple_chat_graph()
+    
+    elif workflow_type == "approval":
+        return create_hitl_approval_graph()
+    
+    elif workflow_type == "hitl_approval":
+        return create_hitl_approval_graph()
+    
+
+    
+    else:
+        error_msg = f"Unknown workflow type: '{workflow_type}'"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
 
-def create_hitl_approval_graph():
-    """Graph with mandatory HITL approval"""
-    builder = GraphBuilder()
-    
-    builder.add_node("validate", input_validation_node)
-    builder.add_node("process", llm_processing_node)
-    builder.add_node("hitl", hitl_gate_node)
-    builder.add_node("format", output_formatting_node)
-    
-    builder.set_entry_point("validate")
-    builder.add_edge("validate", "process")
-    builder.add_edge("process", "hitl")
-    builder.add_edge("hitl", END)  # Always pause for approval
-    builder.add_edge("format", END)
-    
-    return builder.compile()
+# ✅ Export both functions for compatibility
+__all__ = [
+    'GraphBuilder',
+    'create_agent_graph',      # Old function (backward compat)
+    'create_new_agent_graph',  # New function (recommended)
+    'create_simple_chat_graph',
+    'create_hitl_approval_graph',
+    'create_sample_agent_graph'
+]

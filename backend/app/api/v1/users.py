@@ -651,6 +651,38 @@ async def list_pending_invitations(
 # User Management Endpoints (Admin)
 # ============================================================================
 
+# @router.post(
+#     "/create",
+#     response_model=UserResponse,
+#     status_code=status.HTTP_201_CREATED
+# )
+# async def create_user(
+#     user_data: UserCreate,
+#     tenant: Tenant = Depends(get_current_tenant),
+#     admin: TokenData = Depends(get_admin_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Create a new user directly (Admin only)
+    
+#     For manual user creation (not via invitation).
+#     """
+#     service = UserService(db)
+    
+#     try:
+#         user = service.create_user(user_data, tenant.slug)
+#         return UserResponse(**user.to_dict())
+#     except ConflictException as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_409_CONFLICT,
+#             detail=str(e)
+#         )
+#     except BadRequestException as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail=str(e)
+#         )
+
 @router.post(
     "/create",
     response_model=UserResponse,
@@ -670,8 +702,10 @@ async def create_user(
     service = UserService(db)
     
     try:
-        user = service.create_user(user_data, tenant.slug)
+        # ADD AWAIT HERE - This is the fix!
+        user = await service.create_user(user_data, tenant.slug)
         return UserResponse(**user.to_dict())
+        
     except ConflictException as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -682,7 +716,6 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
 
 @router.get("", response_model=UserListResponse)
 async def list_users(

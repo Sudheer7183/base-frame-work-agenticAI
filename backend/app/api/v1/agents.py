@@ -170,11 +170,11 @@ async def execute_agent(
     db: Session = Depends(get_db),
     current_user: TokenData = Depends(get_current_user)
 ):
-    from app.agent_langgraph.executor import LangGraphExecutor
+    from app.agent_langgraph.executor import AsyncLangGraphExecutor
     
     agent = db.query(AgentConfig).filter(AgentConfig.id == agent_id).first()
     if not agent or not agent.active:
         raise HTTPException(400, "Agent not found or inactive")
     
-    executor = LangGraphExecutor(db)
+    executor = AsyncLangGraphExecutor(db)
     return await executor.execute(agent_id, input_data, current_user.sub)

@@ -6,14 +6,23 @@ from sqlalchemy.sql import text
 from sqlalchemy.dialects import postgresql
 
 revision = "202501_pub"
-down_revision = "cc968bca1084"
+down_revision = "4d9384a7e82e"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    conn = op.get_bind()
+    # conn = op.get_bind()
 
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    
+    # ✅ CHECK: Skip if tables already exist
+    public_tables = inspector.get_table_names(schema='public')
+
+    if 'agent_templates' in public_tables:
+        print(f"[Migration {revision}] Tables already exist, skipping")
+        return
     # agent_templates
     conn.execute(text("""
     CREATE TABLE IF NOT EXISTS public.agent_templates (

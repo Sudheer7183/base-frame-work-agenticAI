@@ -1,86 +1,111 @@
 """
-LangGraph State Management
-TypedDict-based state for graphs
+LangGraph State Definition
+Defines the state structure for agent workflows
 """
 
-from typing import TypedDict, List, Dict, Any, Optional, Annotated
-from operator import add
-from langchain_core.messages import BaseMessage
+from typing import TypedDict, Dict, Any, List, Optional
 
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     """
-    State for LangGraph agents
+    State for LangGraph agent workflows
     
-    This is the primary state container passed between nodes
+    This state is passed through all nodes in the graph.
+    Nodes can read from and write to any field.
+    
+    Fields marked as required (in __required_keys__) must be present,
+    all others are optional.
     """
-    # Messages
-    messages: Annotated[List[BaseMessage], add]
-    
-    # Agent context
+    # Execution metadata
+    execution_id: str
     agent_id: int
     agent_name: str
-    execution_id: str
+    timestamp: str
     
     # Input/Output
     input_data: Dict[str, Any]
-    output_data: Optional[Dict[str, Any]]
+    output_data: Dict[str, Any]
     
     # Configuration
     config: Dict[str, Any]
     
-    # HITL
+    # Messages (for conversational agents)
+    messages: List[Dict[str, Any]]
+    
+    # Data processing fields
+    ingestion: Dict[str, Any]  # Data from ingestion node
+    analysis: Dict[str, Any]   # Data from analysis node
+    decision: Dict[str, Any]   # Data from decision node
+    
+    # Workflow control
     requires_hitl: bool
-    hitl_decision: Optional[str]  # "approved", "rejected", None
-    hitl_feedback: Optional[Dict[str, Any]]
+    hitl_approved: bool
+    hitl_feedback: Dict[str, Any]
+    hitl_reason: str
+    
+    # Status tracking
+    ingestion_complete: bool
+    validation_complete: bool
+    processing_complete: bool
+    decision_complete: bool
     
     # Error handling
     error: Optional[str]
-    retry_count: int
+    warnings: List[str]
     
-    # Metadata
-    metadata: Dict[str, Any]
-    
-    # Next step
-    next_step: Optional[str]
+    # Internal (for framework use)
+    _stream: Any  # Stream manager for HITL communication
 
 
 class StateManager:
-    """Manages state transformations and validations"""
+    """
+    Manages state initialization and updates
+    """
     
-    @staticmethod
     def initialize_state(
+        self,
         agent_id: int,
         agent_name: str,
         execution_id: str,
         input_data: Dict[str, Any],
         config: Dict[str, Any]
     ) -> AgentState:
-        """Initialize a new agent state"""
+        """
+        Initialize a new agent state
+        
+        Args:
+            agent_id: Agent ID
+            agent_name: Agent name
+            execution_id: Unique execution ID
+            input_data: Input data from user/API
+            config: Agent configuration
+            
+        Returns:
+            Initialized state dictionary
+        """
+        from datetime import datetime
+        
         return AgentState(
-            messages=[],
+            execution_id=execution_id,
             agent_id=agent_id,
             agent_name=agent_name,
-            execution_id=execution_id,
+            timestamp=datetime.utcnow().isoformat(),
             input_data=input_data,
-            output_data=None,
+            output_data={},
             config=config,
+            messages=[],
+            ingestion={},
+            analysis={},
+            decision={},
             requires_hitl=False,
-            hitl_decision=None,
-            hitl_feedback=None,
+            hitl_approved=False,
+            hitl_feedback={},
+            hitl_reason="",
+            ingestion_complete=False,
+            validation_complete=False,
+            processing_complete=False,
+            decision_complete=False,
             error=None,
-            retry_count=0,
-            metadata={},
-            next_step=None
+            warnings=[],
+            _stream=None
         )
-    
-    @staticmethod
-    def update_state(state: AgentState, **updates) -> AgentState:
-        """Update state with new values"""
-        return {**state, **updates}
-    
-    @staticmethod
-    def add_message(state: AgentState, message: BaseMessage) -> AgentState:
-        """Add a message to state"""
-        state["messages"].append(message)
-        return state
