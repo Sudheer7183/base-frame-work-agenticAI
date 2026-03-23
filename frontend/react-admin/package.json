@@ -16,7 +16,8 @@
     "react-dom": "^18.2.0",
     "react-i18next": "^16.5.1",
     "react-router-dom": "^7.11.0",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "recharts": "^3.8.0"
   },
   "scripts": {
     "dev": "vite",

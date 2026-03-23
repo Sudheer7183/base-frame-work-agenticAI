@@ -1,0 +1,107 @@
+<PPlus>
+    <TransactionControl>
+        <TransactionSourceId>MarkelPaygo</TransactionSourceId>
+        <CompositeRatesSupplied>Yes</CompositeRatesSupplied>
+        <PolicyHolderKeyFieldName>PolicyHolderKey</PolicyHolderKeyFieldName>
+        <EndorsementsAreStateSpecific xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <OutOfSeqEndorseTerminatesSubsequentRates>True</OutOfSeqEndorseTerminatesSubsequentRates>
+        <FullSnapShotModel xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <EndorsementsMixedDateModel xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <RenewalGapsAllowed>False</RenewalGapsAllowed>
+        <RatesBackActive xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+    </TransactionControl>
+    <Policy>
+        <TransactionType>REN</TransactionType>
+        <TransactionEffectiveDate>02/24/2025</TransactionEffectiveDate>
+        <NumberRetryDays>30</NumberRetryDays>
+        <PolicyData>
+            <PolicyHolderKey>15960232</PolicyHolderKey>
+            <Premium>5411.00</Premium>
+            <PolicyNumber>MWC0123966-08</PolicyNumber>
+            <EffectiveDate>03/03/2025</EffectiveDate>
+            <ExpirationDate>03/03/2026</ExpirationDate>
+            <InsuredName>AM-PM Air Conditioning Inc</InsuredName>
+            <Addr>
+                <Addr1>4788 Lehto Ln </Addr1>
+                <City>Lake Worth</City>
+                <StateProvCd>FL</StateProvCd>
+                <PostalCode>33461-5358</PostalCode>
+            </Addr>
+            <Fein>465212344</Fein>
+            <Email>bmartinez@ampmair.com</Email>
+            <Phone>561-649-4450</Phone>
+            <Fax xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <ClientContactName>Bonnie Martinez</ClientContactName>
+            <AgentContact>
+                <Branch>Apex Insurance Resources, LLC</Branch>
+                <Name>Angela Dionne</Name>
+                <Phone>386-218-2005</Phone>
+                <Email>adionne@apexinsuranceresources.com</Email>
+            </AgentContact>
+            <PayrollFrequency xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <BalanceToMinimumFlag>N</BalanceToMinimumFlag>
+            <PreviousPolicyNumber>15960232</PreviousPolicyNumber>
+            <GoverningState>FL</GoverningState>
+            <ACHContactEmail xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <PayrollFrequencyId xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <ProcessedDate></ProcessedDate>
+        </PolicyData>
+        <Officers>
+            <Officer>
+                <State>FL</State>
+                <ClassCode>8810</ClassCode>
+                <Name>Bonnie Martinez</Name>
+                <IncludedExcludedCd>I</IncludedExcludedCd>
+                <Title>ElecOfc</Title>
+                <OwnershipPct>0</OwnershipPct>
+                <Salary>46800.00</Salary>
+                <EffectiveDate>03/03/2025</EffectiveDate>
+                <ExpirationDate>03/03/2026</ExpirationDate>
+            </Officer>
+            <Officer>
+                <State>FL</State>
+                <ClassCode>5537</ClassCode>
+                <Name>Pedro Martinez</Name>
+                <IncludedExcludedCd>E</IncludedExcludedCd>
+                <Title>ElecOfc</Title>
+                <OwnershipPct>50</OwnershipPct>
+                <Salary>50000.00</Salary>
+                <EffectiveDate>03/03/2025</EffectiveDate>
+                <ExpirationDate>03/03/2026</ExpirationDate>
+            </Officer>
+        </Officers>
+        <States>
+            <ComplexRateState>
+                <State>FL</State>
+                <Premium>5411.00</Premium>
+                <TimePeriod>
+                    <EffectiveDate>03/03/2025</EffectiveDate>
+                    <ExpirationDate>03/03/2026</ExpirationDate>
+                    <ExposureBasedPremium>5411.00</ExposureBasedPremium>
+                    <Rates>
+                        <Rate>
+                            <ClassCode>5537</ClassCode>
+                            <CompositeRate>0.03943000</CompositeRate>
+                            <Exposure>135166.00</Exposure>
+                            <EstPremium>0.00</EstPremium>
+                            <EffectiveDate>03/03/2025</EffectiveDate>
+                            <ExpirationDate>03/03/2026</ExpirationDate>
+                            <CarrierRateId>1023900165</CarrierRateId>
+                            <Description>Air- Cond., Heating &amp; Refrig. Systems- Install.,Service And Repair &amp; Drivers</Description>
+                        </Rate>
+                        <Rate>
+                            <ClassCode>8810</ClassCode>
+                            <CompositeRate>0.00129100</CompositeRate>
+                            <Exposure>62400.00</Exposure>
+                            <EstPremium>0.00</EstPremium>
+                            <EffectiveDate>03/03/2025</EffectiveDate>
+                            <ExpirationDate>03/03/2026</ExpirationDate>
+                            <CarrierRateId>1023900165</CarrierRateId>
+                            <Description>Clerical Office Employees Noc</Description>
+                        </Rate>
+                    </Rates>
+                </TimePeriod>
+            </ComplexRateState>
+        </States>
+    </Policy>
+</PPlus>

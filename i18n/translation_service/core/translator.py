@@ -425,19 +425,23 @@ def create_translation_manager(
     Returns:
         TranslationManager instance
     """
-    from .providers import (
-        GoogleTranslateProvider,
-        DeepLProvider,
-        AzureTranslatorProvider,
-        AWSTranslateProvider,
-        LibreTranslateProvider
-    )
+    # from .providers import (
+    #     GoogleTranslateProvider,
+    #     DeepLProvider,
+    #     AzureTranslatorProvider,
+    #     AWSTranslateProvider,
+    #     LibreTranslateProvider
+    # )
+
+    from providers.google_translate import GoogleTranslateProvider
+    from providers.deepl import DeepLProvider
+    from providers.libre import LibreTranslateProvider
     
     providers = {
         'google': GoogleTranslateProvider,
         'deepl': DeepLProvider,
-        'azure': AzureTranslatorProvider,
-        'aws': AWSTranslateProvider,
+        # 'azure': AzureTranslatorProvider,
+        # 'aws': AWSTranslateProvider,
         'libre': LibreTranslateProvider
     }
     

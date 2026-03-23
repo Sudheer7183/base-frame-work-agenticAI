@@ -392,6 +392,8 @@ import UserManagementTable from './components/UserManagementTable';
 
 import AgentBuilder from './components/AgentBuilder/AgentBuilder';
 import { Layout } from './components/Layout';
+import WCAuditApp from './pages/WCAudit';
+
 function MainLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -401,6 +403,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     const path = location.pathname;
     if (path.includes('/users')) return 'users';
     if (path.includes('/agents')) return 'agents';
+    if (path.includes('/wc-audit')) return 'Workmencomp'
     return 'tenants';
   };
 
@@ -492,6 +495,29 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             <Bot size={18} />
             Agents
           </button>
+
+          <button
+            onClick={() => handleTabChange('Workmencomp', '/admin/wc-audit')}
+            style={{
+              padding: '16px 0',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'Workmencomp' ? '2px solid #3b82f6' : '2px solid transparent',
+              color: activeTab === 'Workmencomp' ? '#3b82f6' : '#6b7280',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            <Bot size={18} />
+            Workmencomp
+          </button>
         </div>
       </div>
 
@@ -544,7 +570,7 @@ function AppContent() {
           ) : (
             <ProtectedRoute requireAdmin={true}>
               <MainLayout>
-                <Layout>
+                {/* <Layout> */}
                 <Routes>
                   <Route path="tenants" element={<TenantAdminInterface />} />
                   <Route path="users" element={<UserManagementTable />} />
@@ -553,8 +579,9 @@ function AppContent() {
                   <Route path="agents/create" element={<AgentBuilder />} />
                   <Route path="agents/:id/edit" element={<AgentBuilder />} />
                   <Route index element={<Navigate to="tenants" replace />} />
+                  <Route path="/wc-audit/*" element={<WCAuditApp />} />
                 </Routes>
-                </Layout>
+                {/* </Layout> */}
               </MainLayout>
             </ProtectedRoute>
           )

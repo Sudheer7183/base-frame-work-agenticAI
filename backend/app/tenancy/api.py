@@ -248,6 +248,7 @@
 """API endpoints for tenant management with i18n support"""
 
 from typing import List, Optional
+from venv import logger
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.orm import Session
@@ -260,6 +261,11 @@ from .exceptions import TenantError, InvalidTenantError, TenantNotFoundError
 # Import security dependencies to protect these endpoints
 from app.core.security import get_super_admin_user, TokenData
 
+from app.core.realtime_translation import (
+    translate_text_realtime,
+    translate_dict_fields,
+    should_translate
+)
 
 # ============================================================================
 # i18n imports (UPDATED)
@@ -279,6 +285,8 @@ from backend.core.i18n import (
     get_locale_info,            # Get locale information
     is_rtl                      # Check if RTL language
 )
+
+
 
 router = APIRouter(prefix="/platform/tenants", tags=["Tenant Management"])
 
@@ -451,75 +459,169 @@ def create_tenant(
         )
 
 
+# @router.get("/{slug}", response_model=TenantResponse)
+# def get_tenant(
+#     slug: str,
+#     db: Session = Depends(get_db),
+#     current_admin: TokenData = Depends(get_super_admin_user)
+# ):
+#     """Get tenant by slug (Super Admin only)"""
+#     service = TenantService(db)
+    
+#     try:
+#         tenant = service.get_tenant(slug)
+#         response_data = format_tenant_response(tenant)
+#         return TenantResponse(**response_data)
+        
+#     except TenantNotFoundError as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=_("Tenant '{slug}' not found").format(slug=slug)
+#         )
+
 @router.get("/{slug}", response_model=TenantResponse)
-def get_tenant(
+async def get_tenant(
     slug: str,
+    translate_content: bool = True,  # ← ADD THIS PARAMETER
     db: Session = Depends(get_db),
     current_admin: TokenData = Depends(get_super_admin_user)
 ):
-    """Get tenant by slug (Super Admin only)"""
+    """
+    Get tenant by slug
+    
+    Args:
+        slug: Tenant slug
+        translate_content: Enable real-time translation of user content (default: True)
+        db: Database session
+        current_admin: Current admin user
+        
+    Returns:
+        Tenant details with optional translated content
+    """
     service = TenantService(db)
     
     try:
         tenant = service.get_tenant(slug)
-        response_data = format_tenant_response(tenant)
-        return TenantResponse(**response_data)
+        tenant_dict = format_tenant_response(tenant)
+        
+        # ========== ADD THIS BLOCK ==========
+        # Real-time translation of user-generated content
+        if translate_content and should_translate():
+            print(f"DEBUG: About to translate description")  # Debug log
+            print(f"DEBUG: Current locale: {get_current_locale()}")  # Debug log
+            
+            if tenant_dict.get('description'):
+                original = tenant_dict['description']
+                print(f"DEBUG: Original description: {original}")  # Debug log
+                
+                translated = translate_text_realtime(original)
+                print(f"DEBUG: Translated description: {translated}")  # Debug log
+                
+                tenant_dict['description'] = translated
+        # ====================================
+        
+        return TenantResponse(**tenant_dict)
         
     except TenantNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_("Tenant '{slug}' not found").format(slug=slug)
         )
+    except Exception as e:
+        logger.error(f"Error retrieving tenant {slug}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_("Error retrieving tenant: {error}").format(error=str(e))
+        )
+
+# @router.get("", response_model=TenantListResponse)
+# def list_tenants(
+#     status_filter: Optional[TenantStatus] = None,
+#     limit: int = 100,
+#     offset: int = 0,
+#     db: Session = Depends(get_db),
+#     current_admin: TokenData = Depends(get_super_admin_user)
+# ):
+#     """List all tenants (Super Admin only)"""
+#     service = TenantService(db)
+    
+#     # Get tenants
+#     tenants = service.list_tenants(status=status_filter, limit=limit, offset=offset)
+#     total_count = len(tenants)
+    
+#     # Get locale information
+#     current_locale = get_current_locale()
+#     locale_info = get_locale_info(current_locale)
+    
+#     # Format tenant responses
+#     formatted_tenants = [
+#         TenantResponse(**format_tenant_response(t)) 
+#         for t in tenants
+#     ]
+    
+#     # Create pluralized message
+#     if status_filter:
+#         message = _n(
+#             "Found {n} {status} tenant",
+#             "Found {n} {status} tenants",
+#             total_count
+#         ).format(n=total_count, status=translate_status(status_filter.value))
+#     else:
+#         message = _n(
+#             "Found {n} tenant",
+#             "Found {n} tenants",
+#             total_count
+#         ).format(n=total_count)
+    
+#     return TenantListResponse(
+#         message=message,
+#         tenants=formatted_tenants,
+#         total=total_count,
+#         total_display=_n("{n} tenant", "{n} tenants", total_count).format(n=total_count),
+#         limit=limit,
+#         offset=offset,
+#         locale=current_locale,
+#         direction=locale_info.get('direction', 'ltr')
+#     )
 
 
-@router.get("", response_model=TenantListResponse)
-def list_tenants(
+@router.get("")
+async def list_tenants(
+    translate_descriptions: bool = True,  # NEW
     status_filter: Optional[TenantStatus] = None,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
     current_admin: TokenData = Depends(get_super_admin_user)
 ):
-    """List all tenants (Super Admin only)"""
+    """List tenants with optional description translation"""
     service = TenantService(db)
-    
-    # Get tenants
     tenants = service.list_tenants(status=status_filter, limit=limit, offset=offset)
+    
+    formatted_tenants = []
+    for tenant in tenants:
+        tenant_dict = format_tenant_response(tenant)
+        
+        # Translate description if enabled and locale is not English
+        if translate_descriptions and should_translate() and tenant.description:
+            tenant_dict['description'] = translate_text_realtime(
+                tenant.description
+            )
+        
+        formatted_tenants.append(TenantResponse(**tenant_dict))
+    
     total_count = len(tenants)
-    
-    # Get locale information
     current_locale = get_current_locale()
-    locale_info = get_locale_info(current_locale)
-    
-    # Format tenant responses
-    formatted_tenants = [
-        TenantResponse(**format_tenant_response(t)) 
-        for t in tenants
-    ]
-    
-    # Create pluralized message
-    if status_filter:
-        message = _n(
-            "Found {n} {status} tenant",
-            "Found {n} {status} tenants",
-            total_count
-        ).format(n=total_count, status=translate_status(status_filter.value))
-    else:
-        message = _n(
-            "Found {n} tenant",
-            "Found {n} tenants",
-            total_count
-        ).format(n=total_count)
     
     return TenantListResponse(
-        message=message,
+        message=_n("Found {n} tenant", "Found {n} tenants", total_count).format(n=total_count),
         tenants=formatted_tenants,
         total=total_count,
         total_display=_n("{n} tenant", "{n} tenants", total_count).format(n=total_count),
         limit=limit,
         offset=offset,
         locale=current_locale,
-        direction=locale_info.get('direction', 'ltr')
+        direction="rtl" if current_locale == "ar" else "ltr"
     )
 
 

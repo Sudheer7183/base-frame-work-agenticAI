@@ -62,6 +62,9 @@ from app.core.monitoring import MonitoringMiddleware, init_monitoring, get_monit
 
 from app.api.v1 import cost_analytics_api
 
+# workmencomp application routes
+
+from app.api.v1.wc_aduit_api import router as wc_audit_router 
 
 # i18n imports
 import sys
@@ -71,6 +74,9 @@ sys.path.insert(0, str(i18n_path))
 
 from backend.core.i18n import init_i18n, get_available_locales
 from backend.core.middleware import LocaleMiddleware
+
+# from i18n.backend.core.i18n import init_i18n, get_available_locales
+# from i18n.backend.core.middleware import LocaleMiddleware
 
 
 init_monitoring()
@@ -108,13 +114,14 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",  # Vite alt
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Tenant-Slug"],
 )
-
+app.add_middleware(LocaleMiddleware)
 app.add_middleware(MonitoringMiddleware, monitoring=monitoring)
 # Add tenant middleware (AFTER CORS)
 app.add_middleware(
@@ -130,7 +137,7 @@ app.add_middleware(
     }
 )
 
-app.add_middleware(LocaleMiddleware)
+
 
 
 # Register exception handlers
@@ -191,6 +198,11 @@ app.include_router(
 #         logger.info("✓ Keycloak connection established")
 #     except Exception as e:
 #         logger.error(f"✗ Keycloak connection failed: {e}")
+
+
+# workmen compensation application.
+
+app.include_router(wc_audit_router)
 
 @app.on_event("startup")
 async def startup():

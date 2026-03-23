@@ -137,12 +137,6 @@ config = LocaleConfig()
 # =============================================================================
 
 def get_current_locale() -> str:
-    """
-    Get current locale from context
-    
-    Returns:
-        str: Current locale code (e.g., 'en', 'es', 'fr')
-    """
     return _current_locale.get()
 
 

@@ -7,7 +7,8 @@ License: MIT
 
 import logging
 from typing import List, Dict, Any, Optional
-from ..core.translator import TranslationProvider
+# from ..core.translator import TranslationProvider
+from core.translator import TranslationProvider
 
 logger = logging.getLogger(__name__)
 

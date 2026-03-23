@@ -21,6 +21,7 @@ from .nodes import (
 
 # ✅ Import your custom agent
 from app.agent.data_ingestion_agent import DataIngestionAgent
+from app.agent.workmencompDataIngestion import build_ingestion_graph
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,13 @@ def create_sample_agent_graph():
     
     return workflow.compile(checkpointer=MemorySaver())
 
+
+async def WorkmencompDataIngetion(input_data):
+    """
+    Workmen's comp data ingestion sample agent integration for testing.
+
+    """
+    return await DataIngestionmain()
 
 def create_simple_chat_graph():
     """Simple chat graph without tools"""
@@ -270,9 +278,11 @@ def create_new_agent_graph(agent_config: Dict[str, Any]):
     logger.info(f"Creating graph for workflow type: '{workflow_type}'")
     
     # Route to appropriate workflow builder
-    if workflow_type == "sample_ingestion_decision":
-        return create_sample_agent_graph()
+    # if workflow_type == "sample_ingestion_decision":
+    #     return create_sample_agent_graph()
     
+    if workflow_type == "ingestion_decision":
+        return build_ingestion_graph
     
     elif workflow_type == "simple_chat":
         return create_simple_chat_graph()

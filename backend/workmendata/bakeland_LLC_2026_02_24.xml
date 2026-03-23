@@ -1,0 +1,85 @@
+<PPlus>
+    <TransactionControl>
+        <TransactionSourceId>MarkelPaygo</TransactionSourceId>
+        <CompositeRatesSupplied>Yes</CompositeRatesSupplied>
+        <PolicyHolderKeyFieldName>PolicyHolderKey</PolicyHolderKeyFieldName>
+        <EndorsementsAreStateSpecific xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <OutOfSeqEndorseTerminatesSubsequentRates>True</OutOfSeqEndorseTerminatesSubsequentRates>
+        <FullSnapShotModel xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <EndorsementsMixedDateModel xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        <RenewalGapsAllowed>False</RenewalGapsAllowed>
+        <RatesBackActive xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+    </TransactionControl>
+    <Policy>
+        <TransactionType>REIN</TransactionType>
+        <TransactionEffectiveDate>03/18/2025</TransactionEffectiveDate>
+        <NumberRetryDays>30</NumberRetryDays>
+        <PolicyData>
+            <PolicyHolderKey>17914790</PolicyHolderKey>
+            <Premium>5985.00</Premium>
+            <PolicyNumber>MWC0236214-01</PolicyNumber>
+            <EffectiveDate>03/18/2025</EffectiveDate>
+            <ExpirationDate>03/18/2026</ExpirationDate>
+            <InsuredName>Bakeland LLC</InsuredName>
+            <Addr>
+                <Addr1>24020 State Road 54 </Addr1>
+                <City>Lutz</City>
+                <StateProvCd>FL</StateProvCd>
+                <PostalCode>33559-6768</PostalCode>
+            </Addr>
+            <Fein>873748356</Fein>
+            <Email>tom@kinkasbakery.com</Email>
+            <Phone>727-287-6854</Phone>
+            <Fax xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <ClientContactName>Tomas DeJesus</ClientContactName>
+            <AgentContact>
+                <Branch>Commercial Insurance Specialists, LLC</Branch>
+                <Name>Ryan Wajdowicz</Name>
+                <Phone>813-949-0481</Phone>
+                <Email>rwajdowicz@cisllcfl.com</Email>
+            </AgentContact>
+            <PayrollFrequency xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <BalanceToMinimumFlag>N</BalanceToMinimumFlag>
+            <GoverningState>FL</GoverningState>
+            <ACHContactEmail xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <PayrollFrequencyId xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <ProcessedDate></ProcessedDate>
+        </PolicyData>
+        <Officers>
+            <Officer>
+                <State>FL</State>
+                <ClassCode>9083</ClassCode>
+                <Name>Yenastrid Perera</Name>
+                <IncludedExcludedCd>I</IncludedExcludedCd>
+                <Title>LLCMbr</Title>
+                <OwnershipPct>100</OwnershipPct>
+                <Salary>65000.00</Salary>
+                <EffectiveDate>03/18/2025</EffectiveDate>
+                <ExpirationDate>03/18/2026</ExpirationDate>
+            </Officer>
+        </Officers>
+        <States>
+            <ComplexRateState>
+                <State>FL</State>
+                <Premium>5985.00</Premium>
+                <TimePeriod>
+                    <EffectiveDate>03/18/2025</EffectiveDate>
+                    <ExpirationDate>03/18/2026</ExpirationDate>
+                    <ExposureBasedPremium>5985.00</ExposureBasedPremium>
+                    <Rates>
+                        <Rate>
+                            <ClassCode>9083</ClassCode>
+                            <CompositeRate>0.01315300</CompositeRate>
+                            <Exposure>455000.00</Exposure>
+                            <EstPremium>0.00</EstPremium>
+                            <EffectiveDate>03/18/2025</EffectiveDate>
+                            <ExpirationDate>03/18/2026</ExpirationDate>
+                            <CarrierRateId>1023968079</CarrierRateId>
+                            <Description>Restaurant: Fast Food</Description>
+                        </Rate>
+                    </Rates>
+                </TimePeriod>
+            </ComplexRateState>
+        </States>
+    </Policy>
+</PPlus>

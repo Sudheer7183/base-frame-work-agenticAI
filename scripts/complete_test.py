@@ -35,97 +35,14 @@ def test_complete_flow():
         logger.info("STEP 1: Creating Test Tenant")
         logger.info("="*80)
         
-        tenant_service = TenantService(db)
         
-        try:
-            tenant = tenant_service.create_tenant(
-                slug="testcompany1",
-                name="Test Company Inc1",
-                admin_email="admin@testcompany.com1",
-                max_users=100
-            )
-            logger.info(f"✓ Tenant created: {tenant.slug} ({tenant.schema_name})")
-        except Exception as e:
-            if "already exists" in str(e):
-                logger.info("✓ Tenant already exists, using existing tenant")
-                tenant = tenant_service.get_tenant("testcompany")
-            else:
-                raise
-        
-        # =================================================================
-        # STEP 2: Create Users in Tenant Schema
-        # =================================================================
-        logger.info("\n" + "="*80)
-        logger.info("STEP 2: Creating Users")
-        logger.info("="*80)
-        
-        # Set tenant context
-        set_tenant(tenant.schema_name, tenant.slug)
-        
-        user_service = UserService(db)
-        
-        # Create Super Admin (tenant-level)
-        try:
-            super_admin = user_service.create_user(
-                UserCreate(
-                    email="superadmin@testcompany.com",
-                    username="superadmin",
-                    full_name="Super Admin",
-                    password="SuperSecure123!",
-                    roles=["SUPER_ADMIN"],
-                    is_active=True,
-                    is_verified=True
-                ),
-                tenant.slug
-            )
-            logger.info(f"✓ Super Admin created: {super_admin.email}")
-        except Exception as e:
-            if "already exists" in str(e):
-                logger.info("✓ Super Admin already exists")
-            else:
-                raise
+
         
         # Create Regular Admin
-        try:
-            admin = user_service.create_user(
-                UserCreate(
-                    email="admin@testcompany.com",
-                    username="admin",
-                    full_name="Admin User",
-                    password="AdminSecure123!",
-                    roles=["ADMIN"],
-                    is_active=True,
-                    is_verified=True
-                ),
-                tenant.slug
-            )
-            logger.info(f"✓ Admin created: {admin.email}")
-        except Exception as e:
-            if "already exists" in str(e):
-                logger.info("✓ Admin already exists")
-            else:
-                raise
+
         
         # Create Regular User
-        try:
-            user = user_service.create_user(
-                UserCreate(
-                    email="user@testcompany.com",
-                    username="regularuser",
-                    full_name="Regular User",
-                    password="UserSecure123!",
-                    roles=["USER"],
-                    is_active=True,
-                    is_verified=True
-                ),
-                tenant.slug
-            )
-            logger.info(f"✓ Regular User created: {user.email}")
-        except Exception as e:
-            if "already exists" in str(e):
-                logger.info("✓ Regular User already exists")
-            else:
-                raise
+
         
         # =================================================================
         # STEP 3: Create Test Agent
@@ -135,10 +52,10 @@ def test_complete_flow():
         logger.info("="*80)
         
         # Create agent in tenant schema
-        db.execute(text(f'SET search_path TO "{tenant.schema_name}", public'))
+        db.execute(text(f'SET search_path TO "{"tenant_demo"}", public'))
         
         agent_query = text(f"""
-            INSERT INTO "{tenant.schema_name}".agents 
+            INSERT INTO "{"tenant_demo"}".agents 
             (name, description, workflow, config, active, version, created_at, updated_at)
             VALUES 
             (:name, :description, :workflow, :config, :active, :version, NOW(), NOW())
@@ -147,9 +64,9 @@ def test_complete_flow():
         """)
         
         result = db.execute(agent_query, {
-            "name": "Test Approval Agent",
+            "name": "wc_application_audit_agent",
             "description": "Agent for testing approval workflow with HITL",
-            "workflow": "approval",
+            "workflow": "wc_application_audit_agent",
             "config": '{"model": "gpt-4", "temperature": 0.7, "hitl": {"enabled": true, "threshold": 0.8}}',
             "active": True,
             "version": 1
@@ -172,19 +89,19 @@ def test_complete_flow():
         
         # Check users
         user_count = db.execute(
-            text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".users')
+            text(f'SELECT COUNT(*) FROM "{"tenant_demo"}".users')
         ).scalar()
         logger.info(f"✓ Users in tenant: {user_count}")
         
         # Check agents
         agent_count = db.execute(
-            text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".agents')
+            text(f'SELECT COUNT(*) FROM "{"tenant_demo"}".agents')
         ).scalar()
         logger.info(f"✓ Agents in tenant: {agent_count}")
         
         # List all users
         users_result = db.execute(
-            text(f'SELECT id, email, roles FROM "{tenant.schema_name}".users')
+            text(f'SELECT id, email, roles FROM "{"tenant_demo"}".users')
         )
         
         logger.info("\nUsers in tenant:")
@@ -193,7 +110,7 @@ def test_complete_flow():
         
         # List all agents
         agents_result = db.execute(
-            text(f'SELECT id, name, workflow, active FROM "{tenant.schema_name}".agents')
+            text(f'SELECT id, name, workflow, active FROM "{"tenant_demo"}".agents')
         )
         
         logger.info("\nAgents in tenant:")
@@ -208,10 +125,10 @@ def test_complete_flow():
         logger.info("="*80)
         
         logger.info("\nYou can now test the API with:")
-        logger.info(f"  Tenant: {tenant.slug}")
-        logger.info(f"  Schema: {tenant.schema_name}")
+        logger.info(f"  Tenant: {"tenant_demo"}")
+        logger.info(f"  Schema: {"tenant_demo"}")
         logger.info("\nTest API calls:")
-        logger.info(f'  curl -X GET http://localhost:8000/api/v1/agents -H "X-Tenant-ID: {tenant.schema_name}"')
+        logger.info(f'  curl -X GET http://localhost:8000/api/v1/agents -H "X-Tenant-ID: {"tenant_demo"}"')
         
     except Exception as e:
         logger.error(f"❌ Test failed: {e}")
