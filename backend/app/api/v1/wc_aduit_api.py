@@ -1136,7 +1136,12 @@ from app.agent_langgraph.wc_nodes.hitl_checkpoint import (
     resolve_hitl, get_pending_reviews,
 )
 from app.core.database import SessionLocal
- 
+#-------- Wc RABC imports ----------------------------------------------------
+
+from app.agent_langgraph.wc_nodes.wc_rbac import (
+    WCUser,require_wc_admin,require_wc_super_admin,require_wc_provider,require_wc_agent
+)
+
 # ── ORM models ────────────────────────────────────────────────────────────────
 try:
     from app.models.wc_audit import (
@@ -1450,6 +1455,7 @@ async def upload_audit_files(
     policy_xml:   UploadFile = File(..., description="Policy XML"),
     audit_meta:   UploadFile = File(None, description="Audit metadata Excel (optional)"),
     tenant: Tenant = Depends(require_tenant),
+    user : WCUser = Depends(require_wc_super_admin)
 ):
     """Upload data files and get back their server-side paths."""
     session_id = str(uuid.uuid4())[:8]
