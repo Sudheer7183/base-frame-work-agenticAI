@@ -1704,6 +1704,9 @@ import {
   downloadReport,
 } from "../../api/wcAuditAPI";
  
+
+import { useWCRoles } from "../../hooks/useWCRoles";
+
 // ── Color Palette ─────────────────────────────────────────────────────────────
 const C = {
   navy:    "#0D1B2A",
@@ -1730,6 +1733,24 @@ const fmt = (n) =>
   `$${(n / 1_000).toFixed(0)}K`;
 const pct   = (n) => `${n ?? 0}%`;
 const money = (n) => n == null ? "—" : `$${Number(n).toLocaleString()}`;
+
+function AccessDenied({ requiredRole }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+      justifyContent:"center", height:300, gap:16, color:C.muted }}>
+      <span style={{ fontSize:48 }}>🔒</span>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, marginBottom:6 }}>
+          Access Restricted
+        </div>
+        <div style={{ fontSize:13 }}>
+          This section requires <strong>{requiredRole}</strong> access.
+          Contact your administrator to request the appropriate role.
+        </div>
+      </div>
+    </div>
+  );
+}
  
 // ── Shared Atoms ──────────────────────────────────────────────────────────────
 const RiskBadge = ({ risk }) => {
@@ -2730,7 +2751,18 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
   const [detail,     setDetail]     = useState(auditCase);
   const [hitlNote,   setHitlNote]   = useState("");
   const [submitting, setSubmitting] = useState(false);
- 
+  const {
+    canViewReports,
+    canUpload,
+    canApproveHITL,
+    canViewAllTenants,
+    displayRole,
+    isSuperAdmin,
+    canViewAIAudit,
+    canViewVariance,
+    canViewDashboard,
+    canViewPolicies,
+  } = useWCRoles();
   useEffect(() => {
     if (!auditCase?.audit_case_id) return;
  
@@ -3031,7 +3063,7 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                   </div>
                 </div>
               )}
-              <div style={{ display:"flex", gap:8 }}>
+              {canApproveHITL &&(<div style={{ display:"flex", gap:8 }}>
                 <button style={{ background:C.green, color:"#fff", border:"none", borderRadius:8,
                   padding:"8px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
                   ✓ Approve Narrative
@@ -3040,7 +3072,7 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                   padding:"8px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
                   ✎ Edit &amp; Override
                 </button>
-              </div>
+              </div>)}
             </div>
           )}
  
@@ -3110,7 +3142,9 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                     padding:12, fontSize:13, color:C.text, resize:"vertical", outline:"none",
                     fontFamily:"inherit", boxSizing:"border-box", marginBottom:12 }} />
  
-                {detail.hitl_required ? (
+                {detail.hitl_required && (canApproveHITL
+
+                 ? (
                   <div style={{ display:"flex", gap:10 }}>
                     <button disabled={submitting} onClick={() => handleHITL("approve")}
                       style={{ background:C.green, color:"#fff", border:"none", borderRadius:8,
@@ -3144,7 +3178,7 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                       </button>
                     )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           )}
@@ -3394,15 +3428,38 @@ export default function WCAuditApp() {
   const [cases,        setCases]        = useState([]);
   const [loadingCases, setLoadingCases] = useState(true);
   const [activeCaseId, setActiveCaseId] = useState(null);
- 
-  const navItems = [
-    { id:"dashboard", label:"Dashboard",         icon:"⊞" },
-    { id:"policies",  label:"Policies",           icon:"📋" },
-    { id:"variance",  label:"Variance Analysis",  icon:"📈" },
-    { id:"ai-audit",  label:"AI Audit",           icon:"🤖" },
-    { id:"reports",   label:"Reports",            icon:"📊" },
-    { id:"upload",    label:"Data Upload",        icon:"⬆" },
+  const {
+    canViewReports,
+    canUpload,
+    canApproveHITL,
+    canViewAllTenants,
+    displayRole,
+    isSuperAdmin,
+    canViewAIAudit,
+    canViewVariance,
+    canViewDashboard,
+    canViewPolicies,
+  } = useWCRoles();
+
+  const allNavItems = [
+    { id:"dashboard", label:"Dashboard",        icon:"⊞" ,visible:canViewDashboard},
+    { id:"policies",  label:"Policies",          icon:"📋" ,visible:canViewPolicies},
+    { id:"variance",  label:"Variance Analysis", icon:"📈" ,visible:canViewVariance},
+    { id:"ai-audit",  label:"AI Audit",          icon:"🤖", visible:canViewAIAudit },
+    { id:"reports",   label:"Reports",           icon:"📊",  visible: canViewReports },
+    { id:"upload",    label:"Data Upload",       icon:"⬆",  visible: canUpload },
   ];
+
+  const navItems = allNavItems.filter(item =>
+    item.visible === undefined || item.visible === true
+  );
+
+  useEffect(() => {
+    const visibleIds = new Set(navItems.map(n => n.id));
+    if (!visibleIds.has(screen) && screen !== "audit-detail") {
+      setScreen("dashboard");
+    }
+  }, [navItems, screen]);
  
   const titles = {
     dashboard:      { title:"Dashboard",         sub:"Workers' Compensation Policy Audit Overview" },
@@ -3593,7 +3650,12 @@ export default function WCAuditApp() {
           {screen === "ai-audit" && (
             <AIAuditScreen cases={cases} onCaseCreated={refreshCases} activeCaseId={activeCaseId} />
           )}
-          {screen === "reports" && <ReportsScreen cases={cases} />}
+          {/* {screen === "reports" && <ReportsScreen cases={cases} />} */}
+          {screen === "reports"      && (
+            canViewReports
+              ? <ReportsScreen cases={cases} />
+              : <AccessDenied requiredRole="Provider or above" />
+          )}
           {screen === "upload" && (
             <DataUpload onAuditStarted={(id) => {
               setActiveCaseId(id);

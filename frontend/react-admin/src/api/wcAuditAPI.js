@@ -9,7 +9,7 @@
 
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8000/api/v1";
+const API_BASE_URL = "http://localhost:8002/api/v1";
 
 // ── Tenant-aware axios client (mirrors agentBuilderAPI.js pattern) ────────────
 const apiClient = axios.create({

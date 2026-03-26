@@ -11,7 +11,7 @@ const KEYCLOAK_CONFIG = {
   clientId: 'agentic-frontend'
 };
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8002';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

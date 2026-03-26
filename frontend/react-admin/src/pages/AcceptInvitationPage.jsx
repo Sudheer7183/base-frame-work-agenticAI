@@ -62,7 +62,7 @@ const AcceptInvitationPage = () => {
       
       // ✅ FIX 1: Actually call backend to get invitation details
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/auth/invitation/${invitationToken}`
+        `http://127.0.0.1:8002/api/v1/auth/invitation/${invitationToken}`
       );
       
       if (!response.ok) {
@@ -88,7 +88,7 @@ const AcceptInvitationPage = () => {
 
   const fetchSsoProviders = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/auth/sso/providers');
+      const response = await fetch('http://127.0.0.1:8002/api/v1/auth/sso/providers');
       
       if (response.ok) {
         const data = await response.json();
