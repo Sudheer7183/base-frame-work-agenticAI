@@ -1,16 +1,17 @@
 """
-HITL Checkpoint Node  (async-native)
-=====================================
+HITL Checkpoint Node  (async-native, v5-compatible)
+====================================================
 Pauses the LangGraph workflow for human review on high-risk audits.
 
-FIX: hitl_checkpoint is now declared as `async def` directly.
-     The previous version wrapped it in a sync function that called
-     asyncio.get_event_loop(), which crashed with:
-       RuntimeError: There is no current event loop in thread 'ThreadPoolExecutor-0_0'
-     because LangGraph runs sync nodes in a thread pool executor.
+Changes vs previous version
+────────────────────────────
+• Removed dead import of mark_hitl_pending (function no longer exists in v5 API)
+• Single event store — uses only app.services.hitl_store (no _PENDING_REVIEWS dict)
+• After event.wait() resumes, reads decision from hitl_store (not a dead local dict)
+• resolve_hitl() / get_pending_reviews() kept for Streamlit backward compat —
+  they now delegate to hitl_store so there is only one source of truth
 
-     Declaring the node as `async def` means LangGraph awaits it on the
-     main event loop — no thread pool, no missing event loop.
+File: backend/app/agent_langgraph/wc_nodes/hitl_checkpoint.py
 """
 import asyncio
 import logging
@@ -18,11 +19,9 @@ from datetime import datetime
 from typing import Dict
 
 from app.agent_langgraph.wc_state import WCAuditState
+from app.services import hitl_store
 
 logger = logging.getLogger(__name__)
-
-# ── In-process HITL event store ───────────────────────────────────────────────
-_PENDING_REVIEWS: Dict[int, dict] = {}
 
 
 async def hitl_checkpoint(state: WCAuditState) -> dict:
@@ -30,11 +29,12 @@ async def hitl_checkpoint(state: WCAuditState) -> dict:
     Async LangGraph node — runs on the main event loop (not thread pool).
 
     Steps:
-    1.  Register an asyncio.Event for this case.
-    2.  Call mark_hitl_pending() → registry immediately shows "hitl_pending"
-        so the frontend sees it on the very next /status poll.
-    3.  await event.wait() — suspends HERE until resolve_hitl() is called.
-    4.  Return partial state dict (only the keys this node sets).
+    1. Register an asyncio.Event for this case via hitl_store.
+    2. Update AuditCase status → "review" in DB so the frontend sees it
+       on the very next /status poll.
+    3. await event.wait() — suspends HERE until the /hitl-decision API
+       endpoint calls hitl_store.resolve(), which sets the event.
+    4. Read the decision back from hitl_store and return a partial state dict.
     """
     audit_case_id = state.get("audit_case_id")
     risk_level    = state.get("risk_level", "unknown")
@@ -46,49 +46,70 @@ async def hitl_checkpoint(state: WCAuditState) -> dict:
         f"Risk={risk_level}, Variance={variance:.2f}"
     )
 
-    # Register event BEFORE any awaits so resolve_hitl() can always find it
-    event = asyncio.Event()
-    _PENDING_REVIEWS[audit_case_id] = {
-        "event":     event,
-        "action":    None,
-        "notes":     "",
-        "paused_at": datetime.utcnow().isoformat(),
-    }
+    # ── Register event — MUST happen before any awaits ────────────────
+    event = hitl_store.create_event(audit_case_id)
 
-    # ── Update registry to "hitl_pending" BEFORE blocking ─────────────────
+    # ── Update DB status to "review" so /status shows hitl_pending ────
+    # Use asyncio.to_thread so the sync DB call doesn't block the loop
     try:
-        from app.api.v1.wc_aduit_api import mark_hitl_pending
-        mark_hitl_pending(audit_case_id, dict(state))
-    except (ImportError, Exception) as e:
-        logger.warning(f"[HITLCheckpoint] mark_hitl_pending failed: {e}")
+        import asyncio as _asyncio
+        from app.core.database import SessionLocal
+        from sqlalchemy import text as _text
+        from app.models.wc_audit import AuditCase
 
-    # ── Block until the human makes a decision ─────────────────────────────
+        def _mark_review():
+            schema = state.get("tenant_id", "public")
+            db = SessionLocal()
+            try:
+                db.execute(_text(f'SET search_path TO "{schema}", public'))
+                c = db.query(AuditCase).filter(AuditCase.id == audit_case_id).first()
+                if c:
+                    c.status     = "review"
+                    c.updated_at = datetime.utcnow()
+                    db.commit()
+            except Exception:
+                db.rollback()
+            finally:
+                db.close()
+
+        await _asyncio.to_thread(_mark_review)
+    except Exception as e:
+        logger.warning(f"[HITLCheckpoint] DB status update failed (non-fatal): {e}")
+
+    # ── Block until the human submits a decision ──────────────────────
     logger.info(f"[HITLCheckpoint] Waiting for human decision on case {audit_case_id}…")
     await event.wait()
 
-    review = _PENDING_REVIEWS.pop(audit_case_id, {})
-    action = review.get("action", "approve")
-    notes  = review.get("notes",  "")
+    # ── Read decision from hitl_store (set by /hitl-decision endpoint) ─
+    entry    = hitl_store.get_decision(audit_case_id)
+    decision = entry.decision    if entry else "approve"
+    notes    = entry.notes       if entry else ""
+    reviewer = entry.reviewer_id if entry else "unknown"
+
+    hitl_store.clear(audit_case_id)
 
     logger.info(
-        f"[HITLCheckpoint] Case {audit_case_id} resumed — action={action}"
+        f"[HITLCheckpoint] Case {audit_case_id} resumed — "
+        f"decision={decision}  reviewer={reviewer}"
     )
 
     return {
-        "hitl_decision": action,
+        "hitl_decision": decision,
         "hitl_notes":    notes,
         "agent_logs": [{
-            "agent":     "hitl_checkpoint",
-            "status":    "success",
-            "action":    action,
-            "timestamp": datetime.utcnow().isoformat(),
+            "agent":       "hitl_checkpoint",
+            "status":      "success",
+            "action":      decision,
+            "reviewer_id": reviewer,
+            "timestamp":   datetime.utcnow().isoformat(),
         }],
     }
 
 
-# ─────────────────────────────────────────────
-# Public helpers used by wc_aduit_api.py
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Public helpers — kept for Streamlit backward compatibility
+# Both now delegate to hitl_store so there is only ONE event registry.
+# ─────────────────────────────────────────────────────────────────────────────
 
 def resolve_hitl(
     audit_case_id: int,
@@ -99,29 +120,28 @@ def resolve_hitl(
 ) -> bool:
     """
     Signal the blocked hitl_checkpoint to resume the graph.
-    Returns True if an active event was found and set.
+    Delegates to hitl_store.resolve().
+    Returns True if an active event was found and set, False otherwise.
     """
-    review = _PENDING_REVIEWS.get(audit_case_id)
-    if not review:
+    decision = action  # "approve" / "reject" / "override"
+    resolved = hitl_store.resolve(
+        audit_case_id  = audit_case_id,
+        decision       = decision,
+        reviewer_id    = reviewer_id,
+        notes          = notes,
+        override_data  = override_data,
+    )
+    if not resolved:
         logger.warning(
             f"[resolve_hitl] No pending review found for case {audit_case_id}. "
             "Already resolved or server restarted."
         )
-        return False
-
-    review["action"]      = action
-    review["notes"]       = notes
-    review["reviewer_id"] = reviewer_id
-    review["resolved_at"] = datetime.utcnow().isoformat()
-    review["event"].set()
-
-    logger.info(f"[resolve_hitl] Case {audit_case_id} — action={action} by {reviewer_id}")
-    return True
+    return resolved
 
 
 def get_pending_reviews() -> list:
     """Return list of case IDs currently awaiting human review."""
     return [
-        {"audit_case_id": cid, "paused_at": r.get("paused_at")}
-        for cid, r in _PENDING_REVIEWS.items()
+        {"audit_case_id": cid, "paused_at": None}
+        for cid in hitl_store.all_pending_ids()
     ]
