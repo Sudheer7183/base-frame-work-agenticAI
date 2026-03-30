@@ -234,6 +234,7 @@ async def _run_graph(
     payroll_file_path:    str,
     policy_xml_path:      str,
     audit_meta_file_path: str,
+    data_source:          str = "upload",
 ) -> None:
     """
     Build the initial WCAuditState, run build_wc_audit_graph().astream(),
@@ -245,7 +246,7 @@ async def _run_graph(
     await asyncio.to_thread(
         _db_update_status, audit_case_id, schema_name, "processing"
     )
-
+    # data_source = data.get("data_source", "upload")
     initial_state = create_initial_state(
         audit_case_id        = audit_case_id,
         policy_number        = policy_number,
@@ -253,6 +254,7 @@ async def _run_graph(
         policy_xml_path      = policy_xml_path,
         audit_meta_file_path = audit_meta_file_path,
         tenant_id            = tenant_id,
+        data_source          = data_source, 
     )
 
     graph = build_wc_audit_graph()
@@ -267,6 +269,7 @@ async def _run_graph(
         "parse_payroll_excel":  "ingestion_excel",
         "parse_policy_xml":     "ingestion_xml",
         "parse_audit_metadata": "ingestion_audit_meta",
+        "api_ingestion":        "ingestion_excel",
         "officer_agent":        "officer_agent",
         "class_code_agent":     "class_code_agent",
         "frequency_agent":      "frequency_agent",
@@ -399,6 +402,7 @@ async def run_variance_worker(redis: aioredis.Redis) -> None:
             payroll_file_path    = data["payroll_file_path"]
             policy_xml_path      = data["policy_xml_path"]
             audit_meta_file_path = data.get("audit_meta_file_path", "")
+            data_source          = data.get("data_source", "upload")
 
             logger.info(
                 f"[Worker] Picked up msg_id={msg_id}  "
@@ -414,6 +418,7 @@ async def run_variance_worker(redis: aioredis.Redis) -> None:
                     payroll_file_path    = payroll_file_path,
                     policy_xml_path      = policy_xml_path,
                     audit_meta_file_path = audit_meta_file_path,
+                    data_source          = data_source,
                 )
                 # ── ACK only on success ────────────────────────────────
                 await ack(redis, msg_id)

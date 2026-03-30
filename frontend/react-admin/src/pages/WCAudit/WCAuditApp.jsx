@@ -14,6 +14,7 @@ import {
   pollAuditStatus,
   submitHITLDecision,
   downloadReport,
+  startBatchAuditFromAPI
 } from "../../api/wcAuditAPI";
  
 
@@ -849,18 +850,240 @@ function ResultsAndHITLPanel({ status, onApprove }) {
 }
  
  
-// ── AI Audit Screen ───────────────────────────────────────────────────────────
-function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
+// // ── AI Audit Screen ───────────────────────────────────────────────────────────
+// function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
+//   const [auditCaseId, setAuditCaseId] = useState(null);
+//   const [status,      setStatus]      = useState(null);
+//   const [logs,        setLogs]        = useState([]);
+//   const [agentStatus, setAgentStatus] = useState({});
+//   const stopPollRef = useRef(null);
+ 
+//   const AGENT_LOG_LABELS = {
+//     ingestion_excel:      "Ingestion Agent     → payroll Excel parsed",
+//     ingestion_xml:        "Policy Parser       → XML class codes loaded",
+//     ingestion_audit_meta: "Metadata Agent      → audit dates & submission count loaded",
+//     officer_agent:        "Officer Agent       → officer payroll classification checked",
+//     class_code_agent:     "Class Code Agent    → class code usage validated",
+//     frequency_agent:      "Frequency Agent     → submission frequency analysed",
+//     premium_agent:        "Premium Agent       → variance calculation complete",
+//     risk_assessor:        "Risk Assessor       → risk level & recommendation assigned",
+//     explanation_agent:    "Explanation Agent   → AI narrative generated",
+//     hitl_checkpoint:      "HITL Checkpoint     → paused for human review",
+//   };
+ 
+//   const watchCase = useCallback((caseId) => {
+//     setAuditCaseId(caseId);
+//     setLogs([`[${new Date().toLocaleTimeString()}] 🚀 Workflow started — Case #${caseId}`]);
+//     if (stopPollRef.current) stopPollRef.current();
+//     const loggedAgents = new Set();
+ 
+//     stopPollRef.current = pollAuditStatus(caseId, (s) => {
+//       setStatus(s);
+//       const ts = new Date().toLocaleTimeString();
+//       const newAgentSt = {};
+//       (s.agent_logs || []).forEach(log => {
+//         if (!log.agent) return;
+//         newAgentSt[log.agent] = log.status === "error" ? "error" : "complete";
+//         if (!loggedAgents.has(log.agent)) {
+//           loggedAgents.add(log.agent);
+//           const label  = AGENT_LOG_LABELS[log.agent] ?? log.agent;
+//           const prefix = log.status === "error" ? "✗" : log.status === "skipped" ? "⏭" : "✓";
+//           setLogs(l => [...l, `[${ts}] ${prefix} ${label}`]);
+//         }
+//       });
+//       // setAgentStatus(newAgentSt);
+//       setAgentStatus(prev => ({...prev, ...newAgentSt}));
+//       if (s.status === "hitl_pending") {
+//         setLogs(l => [...l,
+//           `[${ts}] ⚠️  HITL required — case paused for human review`,
+//           `[${ts}]    Risk: ${s.risk_level?.toUpperCase()}, Variance: ${Number(s.variance_pct || 0).toFixed(2)}%`,
+//         ]);
+//         onCaseCreated?.();
+//       }
+//       if (s.status === "completed") {
+//         setLogs(l => [...l,
+//           `[${ts}] 🎉 Audit complete`,
+//           `[${ts}]    Variance: ${Number(s.variance_pct || 0).toFixed(2)}%  |  Risk: ${s.risk_level}  |  Rec: ${s.recommendation}`,
+//         ]);
+//         onCaseCreated?.();
+//         // Stop polling — terminal status, no more requests needed
+//         stopPollRef.current?.();
+//       }
+//       if (s.status === "rejected") {
+//         setLogs(l => [...l, `[${ts}] ✗ Audit rejected`]);
+//         stopPollRef.current?.();
+//       }
+//       if (s.status === "error") {
+//         setLogs(l => [...l, `[${ts}] ✗ Error: ${s.errors}`]);
+//         stopPollRef.current?.();
+//       }
+//     });
+//   }, [onCaseCreated]);
+ 
+//   // ── Guaranteed unmount cleanup ─────────────────────────────────────────────
+//   // The propCaseId effect has no cleanup function.
+//   // The cases effect early-returns when propCaseId is set — registering no cleanup.
+//   // Without this single-purpose effect, navigating away from the AI Audit screen
+//   // leaves the poll running indefinitely (causing the 87-request flood in network tab).
+//   useEffect(() => {
+//     return () => stopPollRef.current?.();
+//   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+ 
+//   useEffect(() => {
+//     if (propCaseId && propCaseId !== auditCaseId) watchCase(propCaseId);
+//   }, [propCaseId]);   // eslint-disable-line react-hooks/exhaustive-deps
+ 
+//   useEffect(() => {
+//     if (propCaseId) return;
+//     const active = cases.find(c => ["running","pending","hitl_pending"].includes(c.status));
+//     if (active && active.audit_case_id !== auditCaseId) watchCase(active.audit_case_id);
+//     // No cleanup here — the mount-only effect above handles teardown
+//   }, [cases]);   // eslint-disable-line react-hooks/exhaustive-deps
+ 
+//   const agentLabels = [
+//     { keys:["ingestion_excel","ingestion_audit_meta"], label:"Ingestion Agent",   sub:"Payroll + audit metadata" },
+//     { keys:["ingestion_xml"],                          label:"Policy Parser",     sub:"XML class codes & rates" },
+//     { keys:["officer_agent"],                          label:"Officer Agent",     sub:"Officer classification" },
+//     { keys:["class_code_agent"],                       label:"Class Code Agent",  sub:"Class code validation" },
+//     { keys:["frequency_agent"],                        label:"Frequency Agent",   sub:"Submission frequency" },
+//     { keys:["premium_agent","risk_assessor"],          label:"Premium Agent",     sub:"Variance & risk scoring" },
+//     { keys:["explanation_agent"],                      label:"Explanation Agent", sub:"AI narrative" },
+//   ];
+ 
+//   const resolveStepStatus = (keys) => {
+//     let anyError = false, doneCount = 0;
+//     for (const k of keys) {
+//       if (agentStatus[k] === "error")    anyError = true;
+//       if (agentStatus[k] === "complete") doneCount++;
+//     }
+//     if (anyError)              return "error";
+//     if (doneCount === keys.length) return "complete";
+//     if (doneCount > 0)         return "partial";
+//     return "pending";
+//   };
+ 
+//   return (
+//     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+//       <div style={{ background:`linear-gradient(135deg, ${C.navy} 0%, ${C.navyLt} 100%)`,
+//         borderRadius:14, padding:28, color:"#fff" }}>
+//         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+//           <div>
+//             <h2 style={{ margin:"0 0 6px", fontSize:22, fontWeight:800 }}>🤖 AI Audit Engine</h2>
+//             <p style={{ margin:0, opacity:0.7, fontSize:14 }}>
+//               LangGraph-powered multi-agent orchestration for automated earned exposure &amp; premium variance detection
+//             </p>
+//           </div>
+//           {auditCaseId && (
+//             <div style={{ textAlign:"right" }}>
+//               <div style={{ fontSize:12, opacity:0.6, marginBottom:4 }}>Monitoring Case</div>
+//               <div style={{ fontSize:22, fontWeight:800 }}>#{auditCaseId}</div>
+//               {status && <StatusBadge status={status.status} />}
+//             </div>
+//           )}
+//         </div>
+//         {!auditCaseId && (
+//           <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(255,255,255,0.07)",
+//             borderRadius:10, fontSize:13, opacity:0.8 }}>
+//             Upload files in <strong>Data Upload</strong> to run an audit. The AI pipeline will
+//             automatically appear here once started.
+//           </div>
+//         )}
+//       </div>
+ 
+//       <div style={{ display:"flex", gap:16 }}>
+//         {/* Agent Pipeline */}
+//         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24, flex:1 }}>
+//           <SectionHeader title="Agent Pipeline Status" sub="Real-time LangGraph orchestration" />
+//           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+//             {agentLabels.map((a, i) => {
+//               const st        = resolveStepStatus(a.keys);
+//               const bgColor   = st === "complete" ? "#F0FDF4" : st === "error" ? "#FEF2F2" : st === "partial" ? "#EEF2FF" : C.bg;
+//               const bdColor   = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
+//               const circleClr = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
+//               const badge     = st === "complete" ? { bg:"#DCFCE7", color:C.green,  text:"Done" }
+//                               : st === "error"    ? { bg:"#FEE2E2", color:C.red,    text:"Error" }
+//                               : st === "partial"  ? { bg:"#DBEAFE", color:C.accent, text:"Running" }
+//                               :                    { bg:"#F3F4F6", color:C.muted,   text:"Pending" };
+//               const subText   = st === "complete" ? a.sub
+//                               : st === "error"    ? "Error encountered"
+//                               : st === "partial"  ? "Processing…" : "Waiting…";
+//               return (
+//                 <div key={a.keys.join()} style={{ display:"flex", alignItems:"center", gap:14,
+//                   padding:"12px 16px", borderRadius:10, transition:"all 0.3s",
+//                   background:bgColor, border:`1px solid ${bdColor}` }}>
+//                   <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
+//                     display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
+//                     background:circleClr, color: st === "pending" ? C.muted : "#fff" }}>
+//                     {st === "complete" ? "✓" : st === "error" ? "✗" : st === "partial" ? "⚙" : i + 1}
+//                   </div>
+//                   <div style={{ flex:1 }}>
+//                     <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{a.label}</div>
+//                     <div style={{ fontSize:11, color:C.muted }}>{subText}</div>
+//                   </div>
+//                   <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20,
+//                     background:badge.bg, color:badge.color }}>{badge.text}</span>
+//                 </div>
+//               );
+//             })}
+//           </div>
+//         </div>
+ 
+//         {/* Live log + results */}
+//         <div style={{ flex:1, display:"flex", flexDirection:"column", gap:16 }}>
+//           <div style={{ background:C.navy, borderRadius:14, padding:20, flex:1, minHeight:300 }}>
+//             <div style={{ fontSize:13, fontWeight:700, color:"#64B5F6", marginBottom:12,
+//               fontFamily:"monospace" }}>▶ AUDIT LOG</div>
+//             <div style={{ fontFamily:"'Courier New', monospace", fontSize:11.5, color:"#A8D8A8",
+//               lineHeight:1.8, overflowY:"auto", maxHeight:280 }}>
+//               {logs.length === 0
+//                 ? <span style={{ color:"#546E7A" }}>// Upload files then start an audit to see live output</span>
+//                 : logs.map((l, i) => <div key={i}>{l}</div>)}
+//             </div>
+//           </div>
+ 
+//           {status && ["completed","hitl_pending"].includes(status.status) && (
+//             <ResultsAndHITLPanel status={status} onApprove={async (decision, note) => {
+//               try {
+//                 await submitHITLDecision(status.audit_case_id, { decision, notes: note });
+//                 const fresh = await getAuditStatus(status.audit_case_id);
+//                 setStatus(fresh);
+//                 onCaseCreated?.();
+//                 const ts = new Date().toLocaleTimeString();
+//                 setLogs(l => [...l, `[${ts}] ✓ HITL decision submitted: ${decision}`]);
+//               } catch (err) {
+//                 alert("HITL submission failed: " + (err.response?.data?.detail || err.message));
+//               }
+//             }} />
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId, batchCaseIds }) {
+  // ── Single-case watch (original behaviour) ─────────────────────
   const [auditCaseId, setAuditCaseId] = useState(null);
   const [status,      setStatus]      = useState(null);
   const [logs,        setLogs]        = useState([]);
   const [agentStatus, setAgentStatus] = useState({});
   const stopPollRef = useRef(null);
  
+  // ── Batch mode state ────────────────────────────────────────────
+  // batchQueue: ordered list of case IDs still waiting for HITL or to finish
+  const [batchQueue,      setBatchQueue]      = useState([]);  // all case IDs in this batch
+  const [batchStatuses,   setBatchStatuses]   = useState({}); // caseId → status object
+  const [hitlQueuedIds,   setHitlQueuedIds]   = useState([]); // cases waiting for HITL
+  const [activeHITLCase,  setActiveHITLCase]  = useState(null); // currently displayed HITL
+  const batchPollsRef = useRef({});  // caseId → stop function
+ 
+  const isBatchMode = batchCaseIds && batchCaseIds.length > 0;
+ 
   const AGENT_LOG_LABELS = {
     ingestion_excel:      "Ingestion Agent     → payroll Excel parsed",
     ingestion_xml:        "Policy Parser       → XML class codes loaded",
     ingestion_audit_meta: "Metadata Agent      → audit dates & submission count loaded",
+    api_ingestion_node:   "API Ingestion       → payroll & policy config fetched from API",
     officer_agent:        "Officer Agent       → officer payroll classification checked",
     class_code_agent:     "Class Code Agent    → class code usage validated",
     frequency_agent:      "Frequency Agent     → submission frequency analysed",
@@ -870,6 +1093,7 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
     hitl_checkpoint:      "HITL Checkpoint     → paused for human review",
   };
  
+  // ── Single-case watcher (unchanged logic) ───────────────────────
   const watchCase = useCallback((caseId) => {
     setAuditCaseId(caseId);
     setLogs([`[${new Date().toLocaleTimeString()}] 🚀 Workflow started — Case #${caseId}`]);
@@ -890,7 +1114,6 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
           setLogs(l => [...l, `[${ts}] ${prefix} ${label}`]);
         }
       });
-      // setAgentStatus(newAgentSt);
       setAgentStatus(prev => ({...prev, ...newAgentSt}));
       if (s.status === "hitl_pending") {
         setLogs(l => [...l,
@@ -905,42 +1128,95 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
           `[${ts}]    Variance: ${Number(s.variance_pct || 0).toFixed(2)}%  |  Risk: ${s.risk_level}  |  Rec: ${s.recommendation}`,
         ]);
         onCaseCreated?.();
-        // Stop polling — terminal status, no more requests needed
         stopPollRef.current?.();
       }
-      if (s.status === "rejected") {
-        setLogs(l => [...l, `[${ts}] ✗ Audit rejected`]);
-        stopPollRef.current?.();
-      }
-      if (s.status === "error") {
-        setLogs(l => [...l, `[${ts}] ✗ Error: ${s.errors}`]);
-        stopPollRef.current?.();
-      }
+      if (s.status === "rejected") { setLogs(l => [...l, `[${ts}] ✗ Audit rejected`]); stopPollRef.current?.(); }
+      if (s.status === "error")    { setLogs(l => [...l, `[${ts}] ✗ Error: ${s.errors}`]); stopPollRef.current?.(); }
     });
   }, [onCaseCreated]);
  
-  // ── Guaranteed unmount cleanup ─────────────────────────────────────────────
-  // The propCaseId effect has no cleanup function.
-  // The cases effect early-returns when propCaseId is set — registering no cleanup.
-  // Without this single-purpose effect, navigating away from the AI Audit screen
-  // leaves the poll running indefinitely (causing the 87-request flood in network tab).
+  // ── Batch: start polling each case ID ───────────────────────────
   useEffect(() => {
-    return () => stopPollRef.current?.();
-  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isBatchMode || batchCaseIds.length === 0) return;
+    setBatchQueue(batchCaseIds);
+    setBatchStatuses({});
+    setHitlQueuedIds([]);
+    setActiveHITLCase(null);
+ 
+    // Clear any previous batch polls
+    Object.values(batchPollsRef.current).forEach(stop => stop?.());
+    batchPollsRef.current = {};
+ 
+    batchCaseIds.forEach(caseId => {
+      const stop = pollAuditStatus(caseId, (s) => {
+        setBatchStatuses(prev => ({ ...prev, [caseId]: s }));
+        onCaseCreated?.();
+ 
+        if (s.status === "hitl_pending") {
+          setHitlQueuedIds(prev =>
+            prev.includes(caseId) ? prev : [...prev, caseId]
+          );
+          // Show the first waiting HITL case immediately
+          setActiveHITLCase(cur => cur ?? caseId);
+        }
+ 
+        if (["completed", "rejected", "error"].includes(s.status)) {
+          // Stop polling this case
+          batchPollsRef.current[caseId]?.();
+          delete batchPollsRef.current[caseId];
+ 
+          // Remove from HITL queue if it was there
+          setHitlQueuedIds(prev => {
+            const next = prev.filter(id => id !== caseId);
+            return next;
+          });
+ 
+          // If this was the active HITL case, advance to the next
+          setActiveHITLCase(cur => {
+            if (cur === caseId) {
+              const remaining = hitlQueuedIds.filter(id => id !== caseId);
+              return remaining[0] ?? null;
+            }
+            return cur;
+          });
+        }
+      });
+      batchPollsRef.current[caseId] = stop;
+    });
+ 
+    return () => {
+      Object.values(batchPollsRef.current).forEach(stop => stop?.());
+      batchPollsRef.current = {};
+    };
+  }, [JSON.stringify(batchCaseIds)]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+  // Advance activeHITLCase whenever hitlQueuedIds changes
+  useEffect(() => {
+    if (!activeHITLCase && hitlQueuedIds.length > 0) {
+      setActiveHITLCase(hitlQueuedIds[0]);
+    }
+  }, [hitlQueuedIds, activeHITLCase]);
+ 
+  // ── Cleanup on unmount ──────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      stopPollRef.current?.();
+      Object.values(batchPollsRef.current).forEach(stop => stop?.());
+    };
+  }, []);
  
   useEffect(() => {
     if (propCaseId && propCaseId !== auditCaseId) watchCase(propCaseId);
-  }, [propCaseId]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [propCaseId]); // eslint-disable-line react-hooks/exhaustive-deps
  
   useEffect(() => {
-    if (propCaseId) return;
+    if (propCaseId || isBatchMode) return;
     const active = cases.find(c => ["running","pending","hitl_pending"].includes(c.status));
     if (active && active.audit_case_id !== auditCaseId) watchCase(active.audit_case_id);
-    // No cleanup here — the mount-only effect above handles teardown
-  }, [cases]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cases]); // eslint-disable-line react-hooks/exhaustive-deps
  
   const agentLabels = [
-    { keys:["ingestion_excel","ingestion_audit_meta"], label:"Ingestion Agent",   sub:"Payroll + audit metadata" },
+    { keys:["ingestion_excel","ingestion_audit_meta","api_ingestion_node"], label:"Ingestion Agent",   sub:"Payroll + audit metadata" },
     { keys:["ingestion_xml"],                          label:"Policy Parser",     sub:"XML class codes & rates" },
     { keys:["officer_agent"],                          label:"Officer Agent",     sub:"Officer classification" },
     { keys:["class_code_agent"],                       label:"Class Code Agent",  sub:"Class code validation" },
@@ -955,14 +1231,48 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
       if (agentStatus[k] === "error")    anyError = true;
       if (agentStatus[k] === "complete") doneCount++;
     }
-    if (anyError)              return "error";
+    if (anyError)                  return "error";
     if (doneCount === keys.length) return "complete";
-    if (doneCount > 0)         return "partial";
+    if (doneCount > 0)             return "partial";
     return "pending";
   };
  
+  // ── Batch summary helpers ────────────────────────────────────────
+  const batchDone      = Object.values(batchStatuses).filter(s => s.status === "completed").length;
+  const batchRejected  = Object.values(batchStatuses).filter(s => s.status === "rejected").length;
+  const batchError_cnt = Object.values(batchStatuses).filter(s => s.status === "error").length;
+  const batchRunning   = Object.values(batchStatuses).filter(s => ["pending","processing","running"].includes(s.status)).length;
+  const batchHITL      = hitlQueuedIds.length;
+ 
+  const activeHITLStatus = activeHITLCase ? batchStatuses[activeHITLCase] : null;
+ 
+  // ── HITL decision handler for batch mode ────────────────────────
+  const handleBatchHITL = async (decision, note) => {
+    if (!activeHITLCase) return;
+    try {
+      await submitHITLDecision(activeHITLCase, { decision, notes: note });
+      const fresh = await getAuditStatus(activeHITLCase);
+      setBatchStatuses(prev => ({ ...prev, [activeHITLCase]: fresh }));
+      onCaseCreated?.();
+ 
+      // Remove from HITL queue and advance
+      setHitlQueuedIds(prev => {
+        const next = prev.filter(id => id !== activeHITLCase);
+        setActiveHITLCase(next[0] ?? null);
+        return next;
+      });
+    } catch (err) {
+      alert("HITL submission failed: " + (err.response?.data?.detail || err.message));
+    }
+  };
+ 
+  // ════════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════════
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+ 
+      {/* Header card */}
       <div style={{ background:`linear-gradient(135deg, ${C.navy} 0%, ${C.navyLt} 100%)`,
         borderRadius:14, padding:28, color:"#fff" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -972,15 +1282,26 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
               LangGraph-powered multi-agent orchestration for automated earned exposure &amp; premium variance detection
             </p>
           </div>
-          {auditCaseId && (
+          {/* Single-case badge */}
+          {!isBatchMode && auditCaseId && (
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:12, opacity:0.6, marginBottom:4 }}>Monitoring Case</div>
               <div style={{ fontSize:22, fontWeight:800 }}>#{auditCaseId}</div>
               {status && <StatusBadge status={status.status} />}
             </div>
           )}
+          {/* Batch badge */}
+          {isBatchMode && (
+            <div style={{ textAlign:"right", minWidth:160 }}>
+              <div style={{ fontSize:12, opacity:0.6, marginBottom:4 }}>Batch Mode</div>
+              <div style={{ fontSize:22, fontWeight:800 }}>{batchCaseIds.length} policies</div>
+              <div style={{ fontSize:12, opacity:0.6, marginTop:4 }}>
+                ✅ {batchDone} done · ⚠️ {batchHITL} HITL · ⚙️ {batchRunning} running
+              </div>
+            </div>
+          )}
         </div>
-        {!auditCaseId && (
+        {!auditCaseId && !isBatchMode && (
           <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(255,255,255,0.07)",
             borderRadius:10, fontSize:13, opacity:0.8 }}>
             Upload files in <strong>Data Upload</strong> to run an audit. The AI pipeline will
@@ -989,77 +1310,194 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId }) {
         )}
       </div>
  
-      <div style={{ display:"flex", gap:16 }}>
-        {/* Agent Pipeline */}
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24, flex:1 }}>
-          <SectionHeader title="Agent Pipeline Status" sub="Real-time LangGraph orchestration" />
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {agentLabels.map((a, i) => {
-              const st        = resolveStepStatus(a.keys);
-              const bgColor   = st === "complete" ? "#F0FDF4" : st === "error" ? "#FEF2F2" : st === "partial" ? "#EEF2FF" : C.bg;
-              const bdColor   = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
-              const circleClr = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
-              const badge     = st === "complete" ? { bg:"#DCFCE7", color:C.green,  text:"Done" }
-                              : st === "error"    ? { bg:"#FEE2E2", color:C.red,    text:"Error" }
-                              : st === "partial"  ? { bg:"#DBEAFE", color:C.accent, text:"Running" }
-                              :                    { bg:"#F3F4F6", color:C.muted,   text:"Pending" };
-              const subText   = st === "complete" ? a.sub
-                              : st === "error"    ? "Error encountered"
-                              : st === "partial"  ? "Processing…" : "Waiting…";
-              return (
-                <div key={a.keys.join()} style={{ display:"flex", alignItems:"center", gap:14,
-                  padding:"12px 16px", borderRadius:10, transition:"all 0.3s",
-                  background:bgColor, border:`1px solid ${bdColor}` }}>
-                  <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
-                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
-                    background:circleClr, color: st === "pending" ? C.muted : "#fff" }}>
-                    {st === "complete" ? "✓" : st === "error" ? "✗" : st === "partial" ? "⚙" : i + 1}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{a.label}</div>
-                    <div style={{ fontSize:11, color:C.muted }}>{subText}</div>
-                  </div>
-                  <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20,
-                    background:badge.bg, color:badge.color }}>{badge.text}</span>
-                </div>
-              );
-            })}
+      {/* ══════════════════════════════════════
+          BATCH MODE: KPI bar + HITL queue
+      ══════════════════════════════════════ */}
+      {isBatchMode && (
+        <>
+          {/* Batch progress KPIs */}
+          <div style={{ display:"flex", gap:14 }}>
+            <KpiCard label="Total Queued"   value={batchCaseIds.length}  sub="From API batch"          accent={C.accent} />
+            <KpiCard label="Completed"      value={batchDone}            sub="Fully audited"           accent={C.green}  />
+            <KpiCard label="HITL Pending"   value={batchHITL}            sub="Awaiting your review"    accent={C.amber}  />
+            <KpiCard label="Running"        value={batchRunning}         sub="In pipeline"             accent={C.purple} />
+            {(batchRejected + batchError_cnt) > 0 && (
+              <KpiCard label="Issues"       value={batchRejected + batchError_cnt} sub="Rejected / Error" accent={C.red} />
+            )}
           </div>
-        </div>
  
-        {/* Live log + results */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:16 }}>
-          <div style={{ background:C.navy, borderRadius:14, padding:20, flex:1, minHeight:300 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:"#64B5F6", marginBottom:12,
-              fontFamily:"monospace" }}>▶ AUDIT LOG</div>
-            <div style={{ fontFamily:"'Courier New', monospace", fontSize:11.5, color:"#A8D8A8",
-              lineHeight:1.8, overflowY:"auto", maxHeight:280 }}>
-              {logs.length === 0
-                ? <span style={{ color:"#546E7A" }}>// Upload files then start an audit to see live output</span>
-                : logs.map((l, i) => <div key={i}>{l}</div>)}
+          {/* HITL review queue banner */}
+          {hitlQueuedIds.length > 0 && (
+            <div style={{ background:"linear-gradient(135deg, #FEF3C7, #FDE68A)",
+              border:`1px solid ${C.amber}`, borderRadius:12, padding:"14px 20px",
+              display:"flex", alignItems:"center", gap:14 }}>
+              <span style={{ fontSize:28 }}>⚠️</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:"#78350F" }}>
+                  {hitlQueuedIds.length} policy(ies) require human review
+                </div>
+                <div style={{ fontSize:12, color:"#92400E", marginTop:2 }}>
+                  Reviewing case #{activeHITLCase} now
+                  {hitlQueuedIds.length > 1
+                    ? ` · ${hitlQueuedIds.length - 1} more in queue after this`
+                    : ""}
+                </div>
+              </div>
+              {/* Queue pills */}
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {hitlQueuedIds.map((id, i) => (
+                  <button key={id} onClick={() => setActiveHITLCase(id)}
+                    style={{ background: id === activeHITLCase ? C.amber : "rgba(0,0,0,0.1)",
+                      color: id === activeHITLCase ? "#fff" : "#78350F",
+                      border:"none", borderRadius:20, padding:"4px 12px",
+                      fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                    #{id}{i === 0 && id === activeHITLCase ? " ← now" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+ 
+          {/* Active HITL panel */}
+          {activeHITLCase && activeHITLStatus && (
+            <div style={{ background:C.card, border:`2px solid ${C.amber}`, borderRadius:14, padding:24 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text }}>
+                    Reviewing: {activeHITLStatus.policy_number} — Case #{activeHITLCase}
+                  </div>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>
+                    Risk: <strong style={{ color:C.red }}>{activeHITLStatus.risk_level?.toUpperCase()}</strong>
+                    &nbsp;·&nbsp;Variance: <strong>{Number(activeHITLStatus.variance_pct || 0).toFixed(2)}%</strong>
+                    &nbsp;·&nbsp;Rec: <strong>{activeHITLStatus.recommendation?.replace(/_/g," ")}</strong>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <RiskBadge risk={activeHITLStatus.risk_level} />
+                  <StatusBadge status={activeHITLStatus.status} />
+                </div>
+              </div>
+              <ResultsAndHITLPanel
+                status={activeHITLStatus}
+                onApprove={handleBatchHITL}
+              />
+            </div>
+          )}
+ 
+          {/* Batch policy status grid */}
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24 }}>
+            <SectionHeader title="Batch Policy Progress"
+              sub="All policies queued in this API batch — click a HITL case to review it" />
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:10 }}>
+              {batchCaseIds.map(caseId => {
+                const s = batchStatuses[caseId];
+                const isHITL = hitlQueuedIds.includes(caseId);
+                const isActive = caseId === activeHITLCase;
+                const border = isActive ? `2px solid ${C.amber}` : isHITL ? `1px solid ${C.amber}` : `1px solid ${C.border}`;
+                const bg     = isActive ? "#FFFBEB" : isHITL ? "#FFFDE7" : C.bg;
+                return (
+                  <div key={caseId}
+                    onClick={() => isHITL && setActiveHITLCase(caseId)}
+                    style={{ background:bg, border, borderRadius:10, padding:"12px 16px",
+                      cursor:isHITL ? "pointer" : "default", transition:"all 0.15s" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.accent }}>
+                        {s?.policy_number || `Case #${caseId}`}
+                      </div>
+                      <StatusBadge status={s?.status || "pending"} />
+                    </div>
+                    <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>
+                      Case #{caseId}
+                      {s?.variance_pct != null && ` · Var: ${Number(s.variance_pct).toFixed(1)}%`}
+                    </div>
+                    {isHITL && (
+                      <div style={{ marginTop:6, fontSize:11, fontWeight:700, color:C.amber }}>
+                        ⚠️ Awaiting HITL {isActive ? "(reviewing now)" : "(click to review)"}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+ 
+      {/* ══════════════════════════════════════
+          SINGLE-CASE MODE (original layout)
+      ══════════════════════════════════════ */}
+      {!isBatchMode && (
+        <div style={{ display:"flex", gap:16 }}>
+          {/* Agent Pipeline */}
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24, flex:1 }}>
+            <SectionHeader title="Agent Pipeline Status" sub="Real-time LangGraph orchestration" />
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {agentLabels.map((a, i) => {
+                const st        = resolveStepStatus(a.keys);
+                const bgColor   = st === "complete" ? "#F0FDF4" : st === "error" ? "#FEF2F2" : st === "partial" ? "#EEF2FF" : C.bg;
+                const bdColor   = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
+                const circleClr = st === "complete" ? C.green   : st === "error" ? C.red     : st === "partial" ? C.accent  : C.border;
+                const badge     = st === "complete" ? { bg:"#DCFCE7", color:C.green,  text:"Done" }
+                                : st === "error"    ? { bg:"#FEE2E2", color:C.red,    text:"Error" }
+                                : st === "partial"  ? { bg:"#DBEAFE", color:C.accent, text:"Running" }
+                                :                    { bg:"#F3F4F6", color:C.muted,   text:"Pending" };
+                const subText   = st === "complete" ? a.sub
+                                : st === "error"    ? "Error encountered"
+                                : st === "partial"  ? "Processing…" : "Waiting…";
+                return (
+                  <div key={a.keys.join()} style={{ display:"flex", alignItems:"center", gap:14,
+                    padding:"12px 16px", borderRadius:10, transition:"all 0.3s",
+                    background:bgColor, border:`1px solid ${bdColor}` }}>
+                    <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
+                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
+                      background:circleClr, color: st === "pending" ? C.muted : "#fff" }}>
+                      {st === "complete" ? "✓" : st === "error" ? "✗" : st === "partial" ? "⚙" : i + 1}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{a.label}</div>
+                      <div style={{ fontSize:11, color:C.muted }}>{subText}</div>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20,
+                      background:badge.bg, color:badge.color }}>{badge.text}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
  
-          {status && ["completed","hitl_pending"].includes(status.status) && (
-            <ResultsAndHITLPanel status={status} onApprove={async (decision, note) => {
-              try {
-                await submitHITLDecision(status.audit_case_id, { decision, notes: note });
-                const fresh = await getAuditStatus(status.audit_case_id);
-                setStatus(fresh);
-                onCaseCreated?.();
-                const ts = new Date().toLocaleTimeString();
-                setLogs(l => [...l, `[${ts}] ✓ HITL decision submitted: ${decision}`]);
-              } catch (err) {
-                alert("HITL submission failed: " + (err.response?.data?.detail || err.message));
-              }
-            }} />
-          )}
+          {/* Live log + results */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ background:C.navy, borderRadius:14, padding:20, flex:1, minHeight:300 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#64B5F6", marginBottom:12,
+                fontFamily:"monospace" }}>▶ AUDIT LOG</div>
+              <div style={{ fontFamily:"'Courier New', monospace", fontSize:11.5, color:"#A8D8A8",
+                lineHeight:1.8, overflowY:"auto", maxHeight:280 }}>
+                {logs.length === 0
+                  ? <span style={{ color:"#546E7A" }}>// Upload files then start an audit to see live output</span>
+                  : logs.map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+            </div>
+ 
+            {status && ["completed","hitl_pending"].includes(status.status) && (
+              <ResultsAndHITLPanel status={status} onApprove={async (decision, note) => {
+                try {
+                  await submitHITLDecision(status.audit_case_id, { decision, notes: note });
+                  const fresh = await getAuditStatus(status.audit_case_id);
+                  setStatus(fresh);
+                  onCaseCreated?.();
+                  const ts = new Date().toLocaleTimeString();
+                  setLogs(l => [...l, `[${ts}] ✓ HITL decision submitted: ${decision}`]);
+                } catch (err) {
+                  alert("HITL submission failed: " + (err.response?.data?.detail || err.message));
+                }
+              }} />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
- 
  
 // ── Audit Detail ──────────────────────────────────────────────────────────────
 function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
@@ -1505,8 +1943,159 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
 }
  
  
-// ── Data Upload ───────────────────────────────────────────────────────────────
-function DataUpload({ onAuditStarted }) {
+// // ── Data Upload ───────────────────────────────────────────────────────────────
+// function DataUpload({ onAuditStarted }) {
+//   const [payrollFile,  setPayrollFile]  = useState(null);
+//   const [policyFile,   setPolicyFile]   = useState(null);
+//   const [metaFile,     setMetaFile]     = useState(null);
+//   const [policyNumber, setPolicyNumber] = useState("");
+//   const [dragging,     setDragging]     = useState(null);
+//   const [uploading,    setUploading]    = useState(false);
+//   const [uploadResult, setUploadResult] = useState(null);
+//   const [starting,     setStarting]     = useState(false);
+//   const [started,      setStarted]      = useState(null);
+//   const [error,        setError]        = useState(null);
+ 
+//   const allReady = payrollFile && policyFile && metaFile && policyNumber.trim();
+ 
+//   const handleUpload = async () => {
+//     if (!allReady) return;
+//     setUploading(true); setError(null);
+//     try {
+//       const result = await uploadAuditFiles(payrollFile, policyFile, metaFile);
+//       setUploadResult(result);
+//     } catch (err) {
+//       setError(err.response?.data?.detail || err.message);
+//     } finally {
+//       setUploading(false);
+//     }
+//   };
+ 
+//   const handleStart = async () => {
+//     if (!uploadResult) return;
+//     setStarting(true); setError(null);
+//     try {
+//       const result = await startAudit({
+//         policy_number:        policyNumber.trim(),
+//         payroll_file_path:    uploadResult.payroll_file_path,
+//         policy_xml_path:      uploadResult.policy_xml_path,
+//         audit_meta_file_path: uploadResult.audit_meta_file_path,
+//       });
+//       setStarted(result);
+//       onAuditStarted?.(result.audit_case_id);
+//     } catch (err) {
+//       setError(err.response?.data?.detail || err.message);
+//     } finally {
+//       setStarting(false);
+//     }
+//   };
+ 
+//   const FileDropZone = ({ label, file, setFile, accept, dragKey }) => (
+//     <div
+//       style={{ background:dragging === dragKey ? "#EEF2FF" : C.bg,
+//         border:`2px dashed ${dragging === dragKey ? C.accent : C.border}`,
+//         borderRadius:12, padding:"20px 24px", cursor:"pointer", transition:"all 0.2s",
+//         display:"flex", alignItems:"center", gap:14 }}
+//       onDragOver={e => { e.preventDefault(); setDragging(dragKey); }}
+//       onDragLeave={() => setDragging(null)}
+//       onDrop={e => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
+//       onClick={() => document.getElementById(`inp-${dragKey}`).click()}>
+//       <span style={{ fontSize:28 }}>{file ? "✅" : "📂"}</span>
+//       <div>
+//         <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{label}</div>
+//         <div style={{ fontSize:12, color:C.muted }}>{file ? file.name : `Drop or click to select — ${accept}`}</div>
+//       </div>
+//       <input id={`inp-${dragKey}`} type="file" accept={accept} style={{ display:"none" }}
+//         onChange={e => e.target.files[0] && setFile(e.target.files[0])} />
+//     </div>
+//   );
+ 
+//   return (
+//     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+//       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
+//         <SectionHeader title="Run New Audit"
+//           sub="Upload three source files, enter policy number, then start the AI pipeline" />
+ 
+//         <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
+//           <FileDropZone label="Payroll Excel (.xlsx)"  file={payrollFile} setFile={setPayrollFile} accept=".xlsx" dragKey="payroll" />
+//           <FileDropZone label="Policy XML (.xml)"      file={policyFile}  setFile={setPolicyFile}  accept=".xml"  dragKey="policy" />
+//           <FileDropZone label="Audit Metadata (.xlsx)" file={metaFile}    setFile={setMetaFile}    accept=".xlsx" dragKey="meta" />
+//         </div>
+ 
+//         <div style={{ marginBottom:20 }}>
+//           <label style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
+//             letterSpacing:0.8, display:"block", marginBottom:6 }}>Policy Number</label>
+//           <input value={policyNumber} onChange={e => setPolicyNumber(e.target.value)}
+//             placeholder="e.g. MWC0183363-05"
+//             style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", fontSize:13,
+//               width:"100%", outline:"none", color:C.text, boxSizing:"border-box", maxWidth:340 }} />
+//         </div>
+ 
+//         {error && (
+//           <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+//             border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+//             ✗ {error}
+//           </div>
+//         )}
+ 
+//         <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+//           {!uploadResult ? (
+//             <button disabled={!allReady || uploading} onClick={handleUpload}
+//               style={{ background:allReady ? C.accent : C.border, color:"#fff", border:"none",
+//                 borderRadius:10, padding:"11px 28px", fontSize:14, fontWeight:700,
+//                 cursor:allReady && !uploading ? "pointer" : "default",
+//                 opacity:uploading ? 0.7 : 1 }}>
+//               {uploading ? "⚙️ Uploading..." : "⬆ Upload Files"}
+//             </button>
+//           ) : !started ? (
+//             <>
+//               <div style={{ padding:"8px 16px", background:"#DCFCE7", borderRadius:8,
+//                 fontSize:13, fontWeight:600, color:"#15803D" }}>
+//                 ✓ Files uploaded — Session: {uploadResult.session_id}
+//               </div>
+//               <button disabled={starting} onClick={handleStart}
+//                 style={{ background:C.green, color:"#fff", border:"none", borderRadius:10,
+//                   padding:"11px 28px", fontSize:14, fontWeight:700,
+//                   cursor:starting ? "default" : "pointer", opacity:starting ? 0.7 : 1 }}>
+//                 {starting ? "⚙️ Starting..." : "▶ Start AI Audit"}
+//               </button>
+//             </>
+//           ) : (
+//             <div style={{ padding:"12px 20px", background:"#DCFCE7", borderRadius:10,
+//               border:`1px solid #86EFAC`, fontSize:14, fontWeight:700, color:"#15803D" }}>
+//               🚀 Audit started! Case #{started.audit_case_id} — Check AI Audit screen for live progress.
+//             </div>
+//           )}
+//         </div>
+//       </div>
+ 
+//       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24 }}>
+//         <SectionHeader title="How it works" sub="The 3-step audit pipeline" />
+//         <div style={{ display:"flex", gap:16 }}>
+//           {[
+//             { n:"1", title:"Upload",  desc:"Drop payroll Excel, policy XML, and audit metadata. Files are securely processed.", icon:"📂" },
+//             { n:"2", title:"Analyze", desc:"LangGraph multi-agent pipeline: Ingestion → Specialist agents → Premium calculation → AI narrative.", icon:"🤖" },
+//             { n:"3", title:"Review",  desc:"Auditor reviews variance report, HITL decisions, and AI explanation. Download final report.", icon:"📊" },
+//           ].map(s => (
+//             <div key={s.n} style={{ flex:1, background:C.bg, borderRadius:12, padding:"18px 20px" }}>
+//               <div style={{ width:32, height:32, borderRadius:"50%", background:C.accent,
+//                 color:"#fff", display:"flex", alignItems:"center", justifyContent:"center",
+//                 fontWeight:800, fontSize:14, marginBottom:12 }}>{s.n}</div>
+//               <div style={{ fontSize:16 }}>{s.icon}</div>
+//               <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:6 }}>{s.title}</div>
+//               <div style={{ fontSize:12, color:C.muted, lineHeight:1.6 }}>{s.desc}</div>
+//             </div>
+//           ))}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+function DataUpload({ onAuditStarted, onBatchStarted }) {
+  // ── File-upload state ────────────────────────────────────────────
   const [payrollFile,  setPayrollFile]  = useState(null);
   const [policyFile,   setPolicyFile]   = useState(null);
   const [metaFile,     setMetaFile]     = useState(null);
@@ -1518,8 +2107,15 @@ function DataUpload({ onAuditStarted }) {
   const [started,      setStarted]      = useState(null);
   const [error,        setError]        = useState(null);
  
+  // ── Batch-API state ──────────────────────────────────────────────
+  const [apiMode,        setApiMode]        = useState(false);   // toggles the tab
+  const [fetchingAPI,    setFetchingAPI]     = useState(false);
+  const [batchResult,    setBatchResult]     = useState(null);   // API response
+  const [batchError,     setBatchError]      = useState(null);
+ 
   const allReady = payrollFile && policyFile && metaFile && policyNumber.trim();
  
+  // ── File upload handlers (unchanged) ────────────────────────────
   const handleUpload = async () => {
     if (!allReady) return;
     setUploading(true); setError(null);
@@ -1552,6 +2148,20 @@ function DataUpload({ onAuditStarted }) {
     }
   };
  
+  // ── Batch API handler ────────────────────────────────────────────
+  const handleFetchFromAPI = async () => {
+    setFetchingAPI(true); setBatchError(null); setBatchResult(null);
+    try {
+      const result = await startBatchAuditFromAPI(); // no args → fetch all policies
+      setBatchResult(result);
+      onBatchStarted?.(result.cases.map(c => c.audit_case_id));
+    } catch (err) {
+      setBatchError(err.response?.data?.detail || err.message);
+    } finally {
+      setFetchingAPI(false);
+    }
+  };
+ 
   const FileDropZone = ({ label, file, setFile, accept, dragKey }) => (
     <div
       style={{ background:dragging === dragKey ? "#EEF2FF" : C.bg,
@@ -1574,73 +2184,222 @@ function DataUpload({ onAuditStarted }) {
  
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
-        <SectionHeader title="Run New Audit"
-          sub="Upload three source files, enter policy number, then start the AI pipeline" />
  
-        <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
-          <FileDropZone label="Payroll Excel (.xlsx)"  file={payrollFile} setFile={setPayrollFile} accept=".xlsx" dragKey="payroll" />
-          <FileDropZone label="Policy XML (.xml)"      file={policyFile}  setFile={setPolicyFile}  accept=".xml"  dragKey="policy" />
-          <FileDropZone label="Audit Metadata (.xlsx)" file={metaFile}    setFile={setMetaFile}    accept=".xlsx" dragKey="meta" />
-        </div>
+      {/* ── Source selector tabs ──────────────────────────────────── */}
+      <div style={{ display:"flex", gap:0, background:C.bg, borderRadius:12,
+        border:`1px solid ${C.border}`, overflow:"hidden", alignSelf:"flex-start" }}>
+        {[
+          { key:false, label:"📂  File Upload",  desc:"Upload Excel & XML files" },
+          { key:true,  label:"🔌  Fetch from API", desc:"Pull all policies from Mock API" },
+        ].map(tab => (
+          <button key={String(tab.key)} onClick={() => setApiMode(tab.key)}
+            style={{ padding:"12px 28px", border:"none", cursor:"pointer",
+              background: apiMode === tab.key
+                ? `linear-gradient(135deg, ${C.accent}, ${C.teal})`
+                : "transparent",
+              color: apiMode === tab.key ? "#fff" : C.muted,
+              fontWeight:700, fontSize:13, transition:"all 0.2s",
+              borderRight:`1px solid ${C.border}` }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
  
-        <div style={{ marginBottom:20 }}>
-          <label style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
-            letterSpacing:0.8, display:"block", marginBottom:6 }}>Policy Number</label>
-          <input value={policyNumber} onChange={e => setPolicyNumber(e.target.value)}
-            placeholder="e.g. MWC0183363-05"
-            style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", fontSize:13,
-              width:"100%", outline:"none", color:C.text, boxSizing:"border-box", maxWidth:340 }} />
-        </div>
+      {/* ══════════════════════════════════════════════════════════════
+          FILE UPLOAD TAB  (original UI, unchanged)
+      ══════════════════════════════════════════════════════════════ */}
+      {!apiMode && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
+          <SectionHeader title="Run New Audit"
+            sub="Upload three source files, enter policy number, then start the AI pipeline" />
  
-        {error && (
-          <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
-            border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
-            ✗ {error}
+          <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
+            <FileDropZone label="Payroll Excel (.xlsx)"  file={payrollFile} setFile={setPayrollFile} accept=".xlsx" dragKey="payroll" />
+            <FileDropZone label="Policy XML (.xml)"      file={policyFile}  setFile={setPolicyFile}  accept=".xml"  dragKey="policy" />
+            <FileDropZone label="Audit Metadata (.xlsx)" file={metaFile}    setFile={setMetaFile}    accept=".xlsx" dragKey="meta" />
           </div>
-        )}
  
-        <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-          {!uploadResult ? (
-            <button disabled={!allReady || uploading} onClick={handleUpload}
-              style={{ background:allReady ? C.accent : C.border, color:"#fff", border:"none",
-                borderRadius:10, padding:"11px 28px", fontSize:14, fontWeight:700,
-                cursor:allReady && !uploading ? "pointer" : "default",
-                opacity:uploading ? 0.7 : 1 }}>
-              {uploading ? "⚙️ Uploading..." : "⬆ Upload Files"}
-            </button>
-          ) : !started ? (
-            <>
-              <div style={{ padding:"8px 16px", background:"#DCFCE7", borderRadius:8,
-                fontSize:13, fontWeight:600, color:"#15803D" }}>
-                ✓ Files uploaded — Session: {uploadResult.session_id}
-              </div>
-              <button disabled={starting} onClick={handleStart}
-                style={{ background:C.green, color:"#fff", border:"none", borderRadius:10,
-                  padding:"11px 28px", fontSize:14, fontWeight:700,
-                  cursor:starting ? "default" : "pointer", opacity:starting ? 0.7 : 1 }}>
-                {starting ? "⚙️ Starting..." : "▶ Start AI Audit"}
+          <div style={{ marginBottom:20 }}>
+            <label style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
+              letterSpacing:0.8, display:"block", marginBottom:6 }}>Policy Number</label>
+            <input value={policyNumber} onChange={e => setPolicyNumber(e.target.value)}
+              placeholder="e.g. MWC0183363-05"
+              style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", fontSize:13,
+                width:"100%", outline:"none", color:C.text, boxSizing:"border-box", maxWidth:340 }} />
+          </div>
+ 
+          {error && (
+            <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+              border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+              ✗ {error}
+            </div>
+          )}
+ 
+          <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+            {!uploadResult ? (
+              <button disabled={!allReady || uploading} onClick={handleUpload}
+                style={{ background:allReady ? C.accent : C.border, color:"#fff", border:"none",
+                  borderRadius:10, padding:"11px 28px", fontSize:14, fontWeight:700,
+                  cursor:allReady && !uploading ? "pointer" : "default",
+                  opacity:uploading ? 0.7 : 1 }}>
+                {uploading ? "⚙️ Uploading..." : "⬆ Upload Files"}
               </button>
-            </>
+            ) : !started ? (
+              <>
+                <div style={{ padding:"8px 16px", background:"#DCFCE7", borderRadius:8,
+                  fontSize:13, fontWeight:600, color:"#15803D" }}>
+                  ✓ Files uploaded — Session: {uploadResult.session_id}
+                </div>
+                <button disabled={starting} onClick={handleStart}
+                  style={{ background:C.green, color:"#fff", border:"none", borderRadius:10,
+                    padding:"11px 28px", fontSize:14, fontWeight:700,
+                    cursor:starting ? "default" : "pointer", opacity:starting ? 0.7 : 1 }}>
+                  {starting ? "⚙️ Starting..." : "▶ Start AI Audit"}
+                </button>
+              </>
+            ) : (
+              <div style={{ padding:"12px 20px", background:"#DCFCE7", borderRadius:10,
+                border:`1px solid #86EFAC`, fontSize:14, fontWeight:700, color:"#15803D" }}>
+                🚀 Audit started! Case #{started.audit_case_id} — Check AI Audit screen for live progress.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+ 
+      {/* ══════════════════════════════════════════════════════════════
+          API FETCH TAB  (new)
+      ══════════════════════════════════════════════════════════════ */}
+      {apiMode && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
+          <SectionHeader
+            title="Fetch All Policies from API"
+            sub="Pulls every available policy from the Mock API and queues them for audit. No file upload needed." />
+ 
+          {/* Info banner */}
+          <div style={{ display:"flex", gap:16, marginBottom:24 }}>
+            {[
+              { icon:"🔌", title:"Mock API Source",  desc:"Reads payroll, policy config, and audit metadata directly from the API" },
+              { icon:"⚡", title:"Batch Processing", desc:"All policies are pushed to the Redis queue simultaneously" },
+              { icon:"🤖", title:"Same Pipeline",    desc:"Each policy runs the full LangGraph agent pipeline with HITL when required" },
+            ].map((item, i) => (
+              <div key={i} style={{ flex:1, background:C.bg, borderRadius:12, padding:"16px 18px",
+                border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:22, marginBottom:8 }}>{item.icon}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:4 }}>{item.title}</div>
+                <div style={{ fontSize:12, color:C.muted, lineHeight:1.5 }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+ 
+          {/* Error */}
+          {batchError && (
+            <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+              border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+              ✗ {batchError}
+            </div>
+          )}
+ 
+          {/* CTA or result */}
+          {!batchResult ? (
+            <button
+              disabled={fetchingAPI}
+              onClick={handleFetchFromAPI}
+              style={{ background:fetchingAPI ? C.border : `linear-gradient(135deg, ${C.accent}, ${C.teal})`,
+                color:"#fff", border:"none", borderRadius:10, padding:"13px 32px",
+                fontSize:15, fontWeight:800, cursor:fetchingAPI ? "default" : "pointer",
+                display:"flex", alignItems:"center", gap:10, transition:"all 0.2s",
+                opacity:fetchingAPI ? 0.7 : 1, boxShadow:fetchingAPI ? "none" : "0 4px 16px rgba(30,111,217,0.3)" }}>
+              {fetchingAPI
+                ? <><span style={{ fontSize:18 }}>⚙️</span> Fetching &amp; Queuing Policies…</>
+                : <><span style={{ fontSize:18 }}>🔌</span> Fetch All Policies from API</>
+              }
+            </button>
           ) : (
-            <div style={{ padding:"12px 20px", background:"#DCFCE7", borderRadius:10,
-              border:`1px solid #86EFAC`, fontSize:14, fontWeight:700, color:"#15803D" }}>
-              🚀 Audit started! Case #{started.audit_case_id} — Check AI Audit screen for live progress.
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+ 
+              {/* Success summary */}
+              <div style={{ padding:"16px 20px", background:"#DCFCE7", borderRadius:12,
+                border:`1px solid #86EFAC`, display:"flex", alignItems:"center", gap:14 }}>
+                <span style={{ fontSize:28 }}>🚀</span>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:800, color:"#15803D" }}>
+                    {batchResult.total_queued} policies queued for audit!
+                  </div>
+                  <div style={{ fontSize:12, color:"#166534", marginTop:2 }}>
+                    Batch ID: {batchResult.batch_id} — Monitor progress on the AI Audit screen.
+                  </div>
+                </div>
+              </div>
+ 
+              {/* Policy case list */}
+              <div style={{ background:C.bg, borderRadius:12, border:`1px solid ${C.border}`,
+                overflow:"hidden" }}>
+                <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`,
+                  fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
+                  letterSpacing:0.8, display:"flex", gap:0 }}>
+                  <span style={{ flex:2 }}>Policy Number</span>
+                  <span style={{ flex:1 }}>Case ID</span>
+                  <span style={{ flex:1 }}>Status</span>
+                </div>
+                <div style={{ maxHeight:260, overflowY:"auto" }}>
+                  {batchResult.cases.map((c, i) => (
+                    <div key={c.audit_case_id}
+                      style={{ display:"flex", padding:"11px 16px", alignItems:"center",
+                        borderBottom:`1px solid ${C.border}`,
+                        background: i % 2 === 0 ? "#fff" : C.bg }}>
+                      <span style={{ flex:2, fontSize:13, fontWeight:700, color:C.accent }}>
+                        {c.policy_number}
+                      </span>
+                      <span style={{ flex:1, fontSize:13, color:C.text }}>
+                        #{c.audit_case_id}
+                      </span>
+                      <span style={{ flex:1 }}>
+                        <StatusBadge status="pending" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+ 
+              {/* API errors if any */}
+              {batchResult.errors?.length > 0 && (
+                <div style={{ padding:"12px 16px", background:"#FEF3C7", borderRadius:10,
+                  border:`1px solid ${C.amber}`, fontSize:12, color:"#92400E" }}>
+                  ⚠️ <strong>{batchResult.errors.length} policy(ies) failed to queue:</strong>
+                  <ul style={{ margin:"6px 0 0 16px", padding:0 }}>
+                    {batchResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+ 
+              {/* Reset */}
+              <button onClick={() => { setBatchResult(null); setBatchError(null); }}
+                style={{ alignSelf:"flex-start", background:C.bg, border:`1px solid ${C.border}`,
+                  borderRadius:8, padding:"7px 16px", fontSize:12, cursor:"pointer", color:C.muted }}>
+                ↺ Run another batch
+              </button>
             </div>
           )}
         </div>
-      </div>
+      )}
  
+      {/* How it works */}
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24 }}>
-        <SectionHeader title="How it works" sub="The 3-step audit pipeline" />
+        <SectionHeader title="How it works" sub={apiMode ? "API batch audit pipeline" : "The 3-step file audit pipeline"} />
         <div style={{ display:"flex", gap:16 }}>
-          {[
+          {(apiMode ? [
+            { n:"1", title:"Discover",  desc:"Backend calls Mock API GET /policies to retrieve all policy numbers in your account.", icon:"🔌" },
+            { n:"2", title:"Queue All", desc:"Each policy gets its own DB row and is pushed to the Redis Stream with data_source='api'.", icon:"⚡" },
+            { n:"3", title:"Process",   desc:"Worker picks up policies one by one. Each runs the full agent pipeline with HITL if high-risk.", icon:"🤖" },
+          ] : [
             { n:"1", title:"Upload",  desc:"Drop payroll Excel, policy XML, and audit metadata. Files are securely processed.", icon:"📂" },
             { n:"2", title:"Analyze", desc:"LangGraph multi-agent pipeline: Ingestion → Specialist agents → Premium calculation → AI narrative.", icon:"🤖" },
             { n:"3", title:"Review",  desc:"Auditor reviews variance report, HITL decisions, and AI explanation. Download final report.", icon:"📊" },
-          ].map(s => (
+          ]).map(s => (
             <div key={s.n} style={{ flex:1, background:C.bg, borderRadius:12, padding:"18px 20px" }}>
-              <div style={{ width:32, height:32, borderRadius:"50%", background:C.accent,
+              <div style={{ width:32, height:32, borderRadius:"50%",
+                background:`linear-gradient(135deg, ${C.accent}, ${C.teal})`,
                 color:"#fff", display:"flex", alignItems:"center", justifyContent:"center",
                 fontWeight:800, fontSize:14, marginBottom:12 }}>{s.n}</div>
               <div style={{ fontSize:16 }}>{s.icon}</div>
@@ -1654,7 +2413,7 @@ function DataUpload({ onAuditStarted }) {
   );
 }
  
- 
+
 // ── Reports Screen ────────────────────────────────────────────────────────────
 function ReportsScreen({ cases }) {
   const completed = cases.filter(c => c.status === "completed");
@@ -1744,6 +2503,7 @@ export default function WCAuditApp() {
   const [cases,        setCases]        = useState([]);
   const [loadingCases, setLoadingCases] = useState(true);
   const [activeCaseId, setActiveCaseId] = useState(null);
+  const [batchCaseIds, setBatchCaseIds] = useState([]);
   const {
     canViewReports,
     canUpload,
@@ -1963,22 +2723,45 @@ export default function WCAuditApp() {
               cases={cases} onRefresh={refreshCases} />
           )}
           {screen === "variance" && <VarianceAnalysis cases={cases} />}
-          {screen === "ai-audit" && (
+          {/* {screen === "ai-audit" && (
             <AIAuditScreen cases={cases} onCaseCreated={refreshCases} activeCaseId={activeCaseId} />
-          )}
+          )} */}
+
+          {screen === "ai-audit" && (
+         <AIAuditScreen
+           cases={cases}
+           onCaseCreated={refreshCases}
+           activeCaseId={activeCaseId}
+           batchCaseIds={batchCaseIds}
+         />
+       )}
           {/* {screen === "reports" && <ReportsScreen cases={cases} />} */}
           {screen === "reports"      && (
             canViewReports
               ? <ReportsScreen cases={cases} />
               : <AccessDenied requiredRole="Provider or above" />
           )}
-          {screen === "upload" && (
+          {/* {screen === "upload" && (
             <DataUpload onAuditStarted={(id) => {
               setActiveCaseId(id);
               refreshCases();
               setScreen("ai-audit");
             }} />
-          )}
+          )} */}
+          {screen === "upload" && (
+         <DataUpload
+           onAuditStarted={(id) => {
+             setActiveCaseId(id);
+             refreshCases();
+             setScreen("ai-audit");
+           }}
+           onBatchStarted={(ids) => {
+             setBatchCaseIds(ids);
+             refreshCases();
+             setScreen("ai-audit");
+           }}
+         />
+       )}
           {screen === "audit-detail" && (
             <AuditDetail auditCase={selectedCase} setScreen={setScreen}
               onHITLDecision={refreshCases} />
@@ -1994,3 +2777,4 @@ export default function WCAuditApp() {
     </div>
   );
 }
+

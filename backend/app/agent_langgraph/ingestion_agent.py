@@ -119,6 +119,9 @@ def parse_payroll_excel(state: WCAuditState) -> dict:
 
 def parse_policy_xml(state: WCAuditState) -> dict:
     """Read policy XML (carrier system export) → xml_records + policy_config."""
+
+    if state.get("data_source") == "api":
+        return {}   # ← ADD THESE TWO LINES
     filepath = state["policy_xml_path"]
     logger.info(f"[IngestionAgent] Reading policy XML: {filepath}")
 
@@ -226,6 +229,8 @@ def parse_audit_metadata(state: WCAuditState) -> dict:
     Returns only the keys it produces; xml_records enrichment is done
     inside the premium_agent which already has both datasets.
     """
+    if state.get("data_source") == "api":
+        return {}   # ← ADD THESE TWO LINES
     filepath = state["audit_meta_file_path"]
     logger.info(f"[IngestionAgent] Reading audit metadata: {filepath}")
 

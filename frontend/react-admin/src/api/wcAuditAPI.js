@@ -201,3 +201,38 @@ export function pollAuditStatus(auditCaseId, onUpdate, intervalMs = 3000) {
   tick();
   return () => { active = false; };
 }
+
+
+// ── List policies available in Mock API ───────────────────────────────────────
+/**
+ * Fetch all available policies from the Mock Data Source API.
+ * @returns {{ count, policies: [{policy_number, insured_name, status, files, ...}] }}
+ */
+export async function listMockAPIPolicies() {
+  const MOCK_API = import.meta.env.VITE_MOCK_API_URL || "http://localhost:9000";
+  const { data } = await axios.get(`${MOCK_API}/api/v1/policies?status=available`);
+  return data;
+}
+
+// ── Start Audit from API source ───────────────────────────────────────────────
+/**
+ * Queue a single policy audit using the Mock API as data source.
+ * No file upload needed — the backend fetches data from Mock API itself.
+ * @param {string} policyNumber
+ * @returns {{ audit_case_id, status, message }}
+ */
+export async function startAuditFromAPI(policyNumber) {
+  const { data } = await apiClient.post("/wc-audit/start-from-api", {
+    policy_number: policyNumber,
+  });
+  return data;
+}
+
+
+export async function startBatchAuditFromAPI(policyNumbers = []) {
+  const { data } = await apiClient.post("/wc-audit/start-batch-from-api", {
+    policy_numbers: policyNumbers.length ? policyNumbers : undefined,
+  });
+  return data;
+}
+ 

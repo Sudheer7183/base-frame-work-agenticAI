@@ -110,6 +110,7 @@ async def push_to_pipeline(
     payroll_file_path:    str,
     policy_xml_path:      str,
     audit_meta_file_path: str = "",
+    data_source:          str = "upload",
 ) -> str:
     """
     XADD a new job onto the audit pipeline stream.
@@ -128,6 +129,7 @@ async def push_to_pipeline(
         "payroll_file_path":    payroll_file_path,
         "policy_xml_path":      policy_xml_path,
         "audit_meta_file_path": audit_meta_file_path,
+        "data_source":          data_source,
     }
 
     msg_id = await redis.xadd(STREAM_KEY, payload, maxlen=STREAM_MAXLEN, approximate=True)

@@ -19,7 +19,7 @@ class WCAuditState(TypedDict):
     policy_xml_path:        str          # Path to policy XML / carrier config
     audit_meta_file_path:   str          # Path to audit metadata Excel (check dates)
     tenant_id:              str
-
+    data_source:            str
     # ── Ingested raw records ──────────────────────────────────────────
     excel_records:          List[Dict]   # Payroll detail rows from Excel
     xml_records:            List[Dict]   # Policy class code rows from XML
@@ -69,7 +69,8 @@ def create_initial_state(
     payroll_file_path: str,
     policy_xml_path: str,
     audit_meta_file_path: str,
-    tenant_id: str = "default"
+    tenant_id: str = "default",
+    data_source: str = "upload"
 ) -> WCAuditState:
     """Create a fresh state for a new audit execution."""
     return WCAuditState(
@@ -79,6 +80,7 @@ def create_initial_state(
         policy_xml_path=policy_xml_path,
         audit_meta_file_path=audit_meta_file_path,
         tenant_id=tenant_id,
+        data_source=data_source,
 
         excel_records=[],
         xml_records=[],
