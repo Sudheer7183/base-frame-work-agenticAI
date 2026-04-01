@@ -235,4 +235,27 @@ export async function startBatchAuditFromAPI(policyNumbers = []) {
   });
   return data;
 }
+
+
+export async function clearAllAuditData() {
+  const { data } = await apiClient.delete("/wc-audit/admin/clear-all-data");
+  return data;
+}
+
+
+export async function getAuditConfig() {
+  const { data } = await apiClient.get("/wc-audit/admin/config");
+  return data;
+}
+ 
+/**
+ * Update the tenant-level audit configuration.
+ * Requires Wc_super_admin role.
+ * @param {{ hitl_enabled: boolean }} payload
+ * @returns {{ hitl_enabled: boolean }}  updated config
+ */
+export async function updateAuditConfig(payload) {
+  const { data } = await apiClient.patch("/wc-audit/admin/config", payload);
+  return data;
+}
  

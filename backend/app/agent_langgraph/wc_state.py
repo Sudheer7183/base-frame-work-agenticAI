@@ -20,6 +20,9 @@ class WCAuditState(TypedDict):
     audit_meta_file_path:   str          # Path to audit metadata Excel (check dates)
     tenant_id:              str
     data_source:            str
+    schema_name: str
+
+    hitl_globally_enabled:  bool
     # ── Ingested raw records ──────────────────────────────────────────
     excel_records:          List[Dict]   # Payroll detail rows from Excel
     xml_records:            List[Dict]   # Policy class code rows from XML
@@ -70,7 +73,9 @@ def create_initial_state(
     policy_xml_path: str,
     audit_meta_file_path: str,
     tenant_id: str = "default",
-    data_source: str = "upload"
+    data_source: str = "upload",
+    schema_name:str = "",
+    hitl_globally_enabled:bool =False,
 ) -> WCAuditState:
     """Create a fresh state for a new audit execution."""
     return WCAuditState(
@@ -80,8 +85,9 @@ def create_initial_state(
         policy_xml_path=policy_xml_path,
         audit_meta_file_path=audit_meta_file_path,
         tenant_id=tenant_id,
+        schema_name=schema_name,
         data_source=data_source,
-
+        hitl_globally_enabled  = hitl_globally_enabled,
         excel_records=[],
         xml_records=[],
         audit_xl_records=[],

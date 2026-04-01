@@ -411,6 +411,60 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
 # Internal DB helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+# def _db_create_case(
+#     schema:               str,
+#     policy_number:        str,
+#     payroll_file_path:    str,
+#     policy_xml_path:      str,
+#     audit_meta_file_path: str,
+#     tenant_id:            str,
+# ) -> AuditCase:
+#     """
+#     Ensure wc_policies row exists and create a wc_audit_cases row with
+#     status="pending".  Returns the persisted AuditCase ORM object.
+#     """
+#     db = _db_session(schema)
+#     try:
+#         policy = (
+#             db.query(Policy)
+#             .filter(Policy.policy_number == policy_number)
+#             .first()
+#         )
+#         if policy is None:
+#             policy = Policy(
+#                 policy_number     = policy_number,
+#                 insured_name      = "Pending",
+#                 effective_date    = datetime.utcnow().date(),
+#                 expiration_date   = datetime.utcnow().date(),
+#                 state_code        = "XX",
+#                 is_active         = True,
+#             )
+#             db.add(policy)
+#             db.flush()
+
+#         temp_ref = f"WCA-{policy_number}-{uuid.uuid4().hex[:8]}"
+#         case = AuditCase(
+#             policy_id             = policy.id,
+#             audit_reference       = temp_ref,
+#             status                = "pending",
+#             payroll_file_path     = payroll_file_path,
+#             policy_xml_path       = policy_xml_path,
+#             audit_meta_file_path  = audit_meta_file_path,
+#             created_at            = datetime.utcnow(),
+#             updated_at            = datetime.utcnow(),
+#         )
+#         db.add(case)
+#         db.commit()
+#         db.refresh(case)
+#         logger.info(f"[API] AuditCase created: id={case.id}  policy={policy_number}  schema={schema}")
+#         return case
+#     except Exception:
+#         db.rollback()
+#         raise
+#     finally:
+#         db.close()
+
+
 def _db_create_case(
     schema:               str,
     policy_number:        str,
@@ -418,7 +472,7 @@ def _db_create_case(
     policy_xml_path:      str,
     audit_meta_file_path: str,
     tenant_id:            str,
-) -> AuditCase:
+) -> "AuditCase":
     """
     Ensure wc_policies row exists and create a wc_audit_cases row with
     status="pending".  Returns the persisted AuditCase ORM object.
@@ -432,38 +486,51 @@ def _db_create_case(
         )
         if policy is None:
             policy = Policy(
-                policy_number     = policy_number,
-                insured_name      = "Pending",
-                effective_date    = datetime.utcnow().date(),
-                expiration_date   = datetime.utcnow().date(),
-                state_code        = "XX",
-                is_active         = True,
+                policy_number  = policy_number,
+                insured_name   = "Pending",
+                effective_date = datetime.utcnow().date(),
+                expiration_date= datetime.utcnow().date(),
+                state_code     = "XX",
+                is_active      = True,
             )
             db.add(policy)
             db.flush()
-
-        temp_ref = f"WCA-{policy_number}-{uuid.uuid4().hex[:8]}"
+ 
+        # ── FIX: use a placeholder reference first, then update after flush ──
+        # We need case.id to build the reference, but case.id isn't assigned
+        # until after db.flush(). Strategy: INSERT with a temp ref, then
+        # immediately UPDATE it to the canonical format.
         case = AuditCase(
-            policy_id             = policy.id,
-            audit_reference       = temp_ref,
-            status                = "pending",
-            payroll_file_path     = payroll_file_path,
-            policy_xml_path       = policy_xml_path,
-            audit_meta_file_path  = audit_meta_file_path,
-            created_at            = datetime.utcnow(),
-            updated_at            = datetime.utcnow(),
+            policy_id            = policy.id,
+            audit_reference      = f"WCA-{policy_number}-PENDING",  # temp placeholder
+            status               = "pending",
+            payroll_file_path    = payroll_file_path,
+            policy_xml_path      = policy_xml_path,
+            audit_meta_file_path = audit_meta_file_path,
+            created_at           = datetime.utcnow(),
+            updated_at           = datetime.utcnow(),
         )
         db.add(case)
+        db.flush()  # case.id is now assigned by PostgreSQL SERIAL
+ 
+        # ── FIX: update to the canonical reference format ──────────────────
+        # This must match EXACTLY what persist_to_database generates:
+        #   f"WCA-{policy_number}-{audit_case_id}"
+        case.audit_reference = f"WCA-{policy_number}-{case.id}"
         db.commit()
         db.refresh(case)
-        logger.info(f"[API] AuditCase created: id={case.id}  policy={policy_number}  schema={schema}")
+ 
+        logger.info(
+            f"[API] AuditCase created: id={case.id}  "
+            f"ref={case.audit_reference}  policy={policy_number}  schema={schema}"
+        )
         return case
+ 
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
-
 
 def _db_fetch_case(audit_case_id: int, schema: str) -> Optional[dict]:
     """
@@ -1215,3 +1282,208 @@ async def start_batch_audit_from_api(
         cases        = results,
         errors       = errors,
     )
+
+
+from pydantic import BaseModel as _BaseModel   # alias avoids clash with existing import
+ 
+ 
+class ClearDataResponse(_BaseModel):
+    deleted_policies: int
+    deleted_cases:    int
+    total_deleted:    int
+    message:          str
+ 
+ 
+@router.delete("/admin/clear-all-data", response_model=ClearDataResponse)
+async def clear_all_audit_data(
+    tenant: Tenant  = Depends(require_tenant),
+    user:   WCUser  = Depends(require_wc_super_admin),   # Super Admin only
+):
+    """
+    **DESTRUCTIVE** — Permanently deletes every Policy row for this tenant.
+ 
+    Because all child tables reference wc_policies.id with ON DELETE CASCADE,
+    a single DELETE on wc_policies wipes the entire object graph:
+ 
+        wc_policies
+          └─ wc_policy_class_codes  (CASCADE)
+          └─ wc_policy_officers     (CASCADE)
+          └─ wc_audit_cases         (CASCADE)
+               └─ wc_payroll_records   (CASCADE)
+               └─ wc_variance_lines    (CASCADE)
+               └─ wc_agent_findings    (CASCADE)
+               └─ wc_hitl_reviews      (CASCADE)
+               └─ wc_audit_reports     (CASCADE)
+ 
+    Also flushes the tenant's Redis cache so the /cases endpoint
+    immediately returns an empty list.
+    """
+    if not _WC_MODELS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="WC models not available.")
+ 
+    schema = _get_schema(tenant)
+    db     = _db_session(schema)
+ 
+    try:
+        # Count before deletion so we can report back
+        case_count   = db.query(AuditCase).count()
+        policy_count = db.query(Policy).count()
+ 
+        # Delete all policies — CASCADE handles everything downstream
+        db.query(Policy).delete(synchronize_session=False)
+        db.commit()
+ 
+        logger.warning(
+            f"[AdminClear] Tenant={tenant.slug} | "
+            f"Deleted {policy_count} policies / {case_count} cases "
+            f"by user={user.username}"
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[AdminClear] Failed for tenant={tenant.slug}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database wipe failed: {exc}")
+    finally:
+        db.close()
+ 
+    # Flush Redis cache so the UI sees an empty list immediately
+    try:
+        cache = get_cache_manager()
+        await cache.delete(_cache_key_cases(tenant.slug))
+    except Exception as cache_exc:
+        # Non-fatal — the DB rows are already gone; cache will expire naturally
+        logger.warning(f"[AdminClear] Cache flush failed (non-fatal): {cache_exc}")
+ 
+    return ClearDataResponse(
+        deleted_policies = policy_count,
+        deleted_cases    = case_count,
+        total_deleted    = policy_count + case_count,
+        message          = (
+            f"Successfully deleted {policy_count} policies and "
+            f"{case_count} audit cases (plus all related records) "
+            f"for tenant '{tenant.slug}'."
+        ),
+    )
+
+
+
+from sqlalchemy import text as _text
+
+class AuditConfig(BaseModel):
+    """Current tenant-level audit configuration."""
+    hitl_enabled: bool = True
+ 
+ 
+class UpdateAuditConfigRequest(BaseModel):
+    """Payload for PATCH /admin/config."""
+    hitl_enabled: bool
+ 
+ 
+# ── Config helpers ────────────────────────────────────────────────────────────
+ 
+_CONFIG_KEY    = "audit_config"
+_CONFIG_CACHE_TTL = 60  # seconds
+ 
+ 
+def _ensure_config_table(db, schema: str) -> None:
+    """Create wc_tenant_config if it doesn't exist yet (idempotent)."""
+    db.execute(_text(f"""
+        CREATE TABLE IF NOT EXISTS {schema}.wc_tenant_config (
+            key        VARCHAR(100) PRIMARY KEY,
+            value      JSONB        NOT NULL DEFAULT '{{}}',
+            updated_at TIMESTAMP    NOT NULL DEFAULT now()
+        )
+    """))
+    db.commit()
+ 
+ 
+def _read_config(db, schema: str) -> dict:
+    """Return the raw config dict from the DB (empty dict if not yet set)."""
+    row = db.execute(_text(
+        f"SELECT value FROM {schema}.wc_tenant_config WHERE key = :k"
+    ), {"k": _CONFIG_KEY}).fetchone()
+    return dict(row[0]) if row else {}
+ 
+ 
+def _write_config(db, schema: str, config: dict) -> None:
+    """Upsert the config dict into the DB."""
+    import json
+    db.execute(_text(f"""
+        INSERT INTO {schema}.wc_tenant_config (key, value, updated_at)
+        VALUES (:k, CAST(:v AS jsonb), now())   -- CAST() avoids the "::" clash
+        ON CONFLICT (key)
+        DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    """), {"k": _CONFIG_KEY, "v": json.dumps(config)})
+    db.commit()
+ 
+ 
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+ 
+@router.get("/admin/config", response_model=AuditConfig)
+async def get_audit_config(
+    tenant: Tenant = Depends(require_tenant),
+    user:   WCUser = Depends(require_wc_super_admin),
+):
+    """
+    Return the current tenant-level audit configuration.
+    Requires the Wc_super_admin Keycloak role.
+    """
+    schema = _get_schema(tenant)
+    cache  = get_cache_manager()
+    key    = f"wc:config:{tenant.slug}"
+ 
+    cached = await cache.get(key)
+    if cached is not None:
+        return AuditConfig(**cached)
+ 
+    db = _db_session(schema)
+    try:
+        _ensure_config_table(db, schema)
+        raw = _read_config(db, schema)
+    finally:
+        db.close()
+ 
+    # Apply defaults for any keys not yet stored
+    config = AuditConfig(
+        hitl_enabled=raw.get("hitl_enabled", True),
+    )
+    await cache.set(key, config.dict(), ttl=_CONFIG_CACHE_TTL)
+    return config
+ 
+ 
+@router.patch("/admin/config", response_model=AuditConfig)
+async def update_audit_config(
+    body:   UpdateAuditConfigRequest,
+    tenant: Tenant = Depends(require_tenant),
+    user:   WCUser = Depends(require_wc_super_admin),
+):
+    """
+    Update the tenant-level audit configuration.
+    Requires the Wc_super_admin Keycloak role.
+ 
+    Setting  hitl_enabled=false  causes  assess_risk  to force
+    hitl_required=False for every subsequent audit, bypassing the
+    hitl_checkpoint node in the LangGraph pipeline.
+    """
+    schema = _get_schema(tenant)
+    db     = _db_session(schema)
+    try:
+        _ensure_config_table(db, schema)
+        existing = _read_config(db, schema)
+        existing["hitl_enabled"] = body.hitl_enabled
+        _write_config(db, schema, existing)
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[Config] Write failed for tenant={tenant.slug}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Config update failed: {exc}")
+    finally:
+        db.close()
+ 
+    # Invalidate cache so workers and the GET endpoint pick up the new value
+    cache = get_cache_manager()
+    await cache.delete(f"wc:config:{tenant.slug}")
+ 
+    logger.info(
+        f"[Config] tenant={tenant.slug} hitl_enabled={body.hitl_enabled} "
+        f"updated by user={user.username}"
+    )
+    return AuditConfig(hitl_enabled=body.hitl_enabled)

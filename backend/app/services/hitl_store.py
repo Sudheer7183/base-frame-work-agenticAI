@@ -106,3 +106,17 @@ def is_pending(audit_case_id: int) -> bool:
 def all_pending_ids() -> list[int]:
     """Return all case IDs currently blocked at HITL."""
     return [cid for cid, e in _HITL_REGISTRY.items() if not e.event.is_set()]
+
+
+def get_event(audit_case_id: int):
+    """
+    Return the asyncio.Event for a pending HITL entry, or None if not found.
+    Used by hitl_checkpoint to reuse an existing event instead of creating
+    a duplicate — prevents two separate events for the same case when a
+    second execution races through (should be blocked by the lock, but
+    this is a final safety net).
+    """
+    entry = _HITL_REGISTRY.get(audit_case_id)
+    if entry is None:
+        return None
+    return entry.event

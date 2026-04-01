@@ -675,6 +675,26 @@ def _status(state: dict) -> str:
 # ─────────────────────────────────────────────
 # Node entry point
 # ─────────────────────────────────────────────
+def _clean_state_code(officer: dict) -> str | None:
+    """
+    Safely extract a VARCHAR(5)-safe state code from an officer dict.
+ 
+    The Mock API sometimes puts a check date ("03/30/2025") in state_code
+    and the real 2-letter state abbreviation in title ("CA").
+    Detection rule: if state_code contains "/" or "-" or is longer than 5 chars,
+    it's a date — use title[:5] instead.
+    Always hard-caps the result to 5 characters.
+    """
+    raw = str(officer.get("state_code") or "").strip()
+    title = str(officer.get("title") or "").strip()
+ 
+    is_date_like = "/" in raw or "-" in raw or len(raw) > 5
+ 
+    if is_date_like or not raw:
+        # Use title as fallback — it usually holds the state abbreviation
+        return title[:5] if title else None
+ 
+    return raw[:5]   # hard-cap even for seemingly valid values
 
 def persist_to_database(state: WCAuditState) -> dict:
     """
@@ -760,14 +780,25 @@ def persist_to_database(state: WCAuditState) -> dict:
                         PolicyOfficer.policy_id == policy_db_id
                     ).delete(synchronize_session=False)
 
+                    # for off in officers:
+                    #     db.add(PolicyOfficer(
+                    #         policy_id     = policy_db_id,
+                    #         officer_name  = _safe(off.get("name"), "Unknown"),
+                    #         title         = _safe(off.get("title")),
+                    #         is_on_payroll = bool(off.get("is_on_payroll", True)),
+                    #         ownership_pct = _safe(off.get("ownership_pct"), 0),
+                    #         state_code    = _safe(off.get("state_code")),
+                    #         created_at    = now,
+                    #     ))
+
                     for off in officers:
                         db.add(PolicyOfficer(
                             policy_id     = policy_db_id,
-                            officer_name  = _safe(off.get("name"), "Unknown"),
+                            officer_name  = _safe(off.get("officer_name") or off.get("name"), "Unknown"),
                             title         = _safe(off.get("title")),
                             is_on_payroll = bool(off.get("is_on_payroll", True)),
                             ownership_pct = _safe(off.get("ownership_pct"), 0),
-                            state_code    = _safe(off.get("state_code")),
+                            state_code    = _clean_state_code(off),   
                             created_at    = now,
                         ))
                     db.flush()

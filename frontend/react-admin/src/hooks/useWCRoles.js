@@ -68,6 +68,7 @@ export function useWCRoles() {
     canApproveHITL:      isProvider,        // admins and above — matches require_wc_admin on backend
     canDownloadReport:   isProvider,     // providers and above
     canViewAllTenants:   isSuperAdmin,   // super admin only
+    canViewAdministartion:isSuperAdmin,
 
     // For the user display in the topbar
     displayRole: isSuperAdmin ? "Super Admin"

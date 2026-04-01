@@ -179,9 +179,9 @@ def _write_excel_report(data: dict, filepath: str) -> None:
     hdr_row = 11
     headers = [
         "Policy Number", "State", "Class Code",
-        "Earned Exposure", "Earned Premium",
-        "EST Exposure", "EST YTD Premium",
-        "Variance ($)", "Variance (%)", "Root Cause"
+        "Earned Exposure", "EST Exposure",
+        "Earned Premium", "EST YTD Premium",
+        "Premium Variance ($)", " Premium Variance pct (%)", "Root Cause"
     ]
     col_widths = [18, 8, 12, 16, 16, 16, 18, 16, 14, 22]
 
@@ -202,8 +202,8 @@ def _write_excel_report(data: dict, filepath: str) -> None:
             line.get("StateCode"),
             line.get("ClassCode"),
             line.get("earned_exposure", 0),
-            line.get("earned_premium",  0),
-            line.get("est_exposure",    0),
+            line.get("est_exposure",  0),
+            line.get("earned_premium",    0),
             line.get("est_ytd_premium", 0),
             line.get("variance",        0),
             line.get("variance_pct",    0),
@@ -225,8 +225,8 @@ def _write_excel_report(data: dict, filepath: str) -> None:
 
     totals = [
         variance.get("earned_exposure", 0),
-        variance.get("earned_premium",  0),
-        variance.get("est_exposure",    0),
+        variance.get("est_exposure",  0),
+        variance.get("earned_premium",    0),
         variance.get("est_ytd_premium", 0),
         variance.get("variance",        0),
         variance.get("variance_pct",    0),
