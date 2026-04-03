@@ -268,7 +268,7 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
     • All policy-level fields (effective_date, payment_frequency, etc.) included
     """
     policy = case.policy
-
+    
     # ── Status mapping ────────────────────────────────────────────────
     fe_status = _FE_STATUS_MAP.get(str(case.status or "").lower(), str(case.status or "pending"))
     if live_hitl_check and hitl_store.is_pending(case.id):
@@ -391,6 +391,7 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
         "effective_date":       _fmt_date(policy.effective_date   if policy else None),
         "expiration_date":      _fmt_date(policy.expiration_date  if policy else None),
         "payment_frequency":    _map_frequency(policy.payroll_frequency if policy else None),
+        "insured_name":str(policy.insured_name if policy else None),
         # ── Audit timeline ────────────────────────────────────────────
         "submitted_count":      case.submitted_count,
         "expected_submissions": case.expected_submissions,
@@ -487,7 +488,7 @@ def _db_create_case(
         if policy is None:
             policy = Policy(
                 policy_number  = policy_number,
-                insured_name   = "Pending",
+                insured_name   = " ",
                 effective_date = datetime.utcnow().date(),
                 expiration_date= datetime.utcnow().date(),
                 state_code     = "XX",
@@ -762,7 +763,7 @@ async def list_audit_cases(
     
 
     # --- END DIAGNOSTICS ---
-
+    print("tenant slug while getting the tenanat",tenant.slug)
     key = _cache_key_cases(tenant.slug)
 
     # return _db_list_cases(schema)
@@ -1163,6 +1164,132 @@ class StartBatchFromAPIResponse(BaseModel):
 # Endpoint
 # ─────────────────────────────────────────────────────────────────────────────
  
+# @router.post("/start-batch-from-api", response_model=StartBatchFromAPIResponse)
+# async def start_batch_audit_from_api(
+#     request: StartBatchFromAPIRequest,
+#     tenant:  Tenant = Depends(require_tenant),
+#     user:    WCUser = Depends(require_wc_super_admin),
+# ):
+#     """
+#     Fetch ALL policies from the Mock API and enqueue each one for audit.
+ 
+#     Flow
+#     ────
+#     1. GET /policies  →  list of policy_numbers (or use the provided list)
+#     2. For each policy_number:
+#        a. _db_create_case(...)  — creates wc_audit_cases row (status=pending)
+#        b. push_to_pipeline(..., data_source="api")  — XADD to Redis Stream
+#     3. Return immediately. Worker picks them up sequentially.
+#        Each case runs the full LangGraph pipeline independently,
+#        including HITL checkpoint when required.
+#     """
+#     import uuid as _uuid
+ 
+#     schema   = _get_schema(tenant)
+#     batch_id = str(_uuid.uuid4())
+#     errors: List[str] = []
+#     results: List[BatchAuditResult] = []
+ 
+#     # ── Step 1: Discover policy numbers ──────────────────────────────────────
+#     policy_numbers = request.policy_numbers or []
+ 
+#     if not policy_numbers:
+#         try:
+#             resp = requests.get(
+#                 f"{MOCK_API_BASE}/policies",
+#                 # timeout=30,
+#             )
+#             resp.raise_for_status()
+#             data           = resp.json()
+#             # Mock API returns: {"policies": [{"policy_number": "...", ...}, ...]}
+#             # or a plain list: [{"policy_number": "..."}, ...]
+#             raw_list       = data.get("policies", data) if isinstance(data, dict) else data
+#             policy_numbers = [
+#                 p["policy_number"] if isinstance(p, dict) else str(p)
+#                 for p in raw_list
+#             ]
+#             logger.info(
+#                 f"[BatchAPI] Discovered {len(policy_numbers)} policies "
+#                 f"from Mock API for tenant={tenant.slug}"
+#             )
+#         except Exception as exc:
+#             logger.error(f"[BatchAPI] Failed to fetch policy list: {exc}", exc_info=True)
+#             raise HTTPException(
+#                 status_code=502,
+#                 detail=f"Could not fetch policy list from Mock API: {exc}",
+#             )
+ 
+#     if not policy_numbers:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Mock API returned no policies to process.",
+#         )
+ 
+#     # ── Step 2: Create DB rows + push to Redis ────────────────────────────────
+#     redis = get_redis()
+ 
+#     for policy_number in policy_numbers:
+#         policy_number = str(policy_number).strip()
+#         if not policy_number:
+#             continue
+ 
+#         try:
+#             # a) Persist DB row (same helper used by /start and /start-from-api)
+#             case = _db_create_case(
+#                 schema               = schema,
+#                 policy_number        = policy_number,
+#                 payroll_file_path    = "",        # no files — data comes from API
+#                 policy_xml_path      = "",
+#                 audit_meta_file_path = "",
+#                 tenant_id            = tenant.slug,
+#             )
+ 
+#             # b) Push to Redis Stream
+#             await push_to_pipeline(
+#                 redis                = redis,
+#                 audit_case_id        = case.id,
+#                 policy_number        = policy_number,
+#                 tenant_id            = tenant.slug,
+#                 schema_name          = schema,
+#                 payroll_file_path    = "",
+#                 policy_xml_path      = "",
+#                 audit_meta_file_path = "",
+#                 data_source          = "api",     # ← routes to api_ingestion_node
+#             )
+ 
+#             # c) Invalidate cache so /cases reflects the new pending row
+#             await _invalidate_case(case.id, tenant.slug)
+ 
+#             results.append(BatchAuditResult(
+#                 policy_number = policy_number,
+#                 audit_case_id = case.id,
+#                 status        = "pending",
+#                 message       = f"Queued successfully (case_id={case.id})",
+#             ))
+ 
+#             logger.info(
+#                 f"[BatchAPI] Queued policy={policy_number} "
+#                 f"case_id={case.id} tenant={tenant.slug}"
+#             )
+ 
+#         except Exception as exc:
+#             err_msg = f"Failed to queue {policy_number}: {exc}"
+#             logger.error(f"[BatchAPI] {err_msg}", exc_info=True)
+#             errors.append(err_msg)
+ 
+#     return StartBatchFromAPIResponse(
+#         batch_id     = batch_id,
+#         total_queued = len(results),
+#         cases        = results,
+#         errors       = errors,
+#     )
+
+
+import json   # add to existing imports if not already present
+ 
+ 
+POLICY_CONFIG_CACHE_TTL = int(os.getenv("POLICY_CONFIG_CACHE_TTL_SECS", 86400))
+
 @router.post("/start-batch-from-api", response_model=StartBatchFromAPIResponse)
 async def start_batch_audit_from_api(
     request: StartBatchFromAPIRequest,
@@ -1174,13 +1301,16 @@ async def start_batch_audit_from_api(
  
     Flow
     ────
-    1. GET /policies  →  list of policy_numbers (or use the provided list)
+    1. GET /policies  →  list of policy numbers (or use the provided list)
     2. For each policy_number:
-       a. _db_create_case(...)  — creates wc_audit_cases row (status=pending)
-       b. push_to_pipeline(..., data_source="api")  — XADD to Redis Stream
-    3. Return immediately. Worker picks them up sequentially.
-       Each case runs the full LangGraph pipeline independently,
-       including HITL checkpoint when required.
+       a. _db_create_case(...)      — creates wc_audit_cases row (status=pending)
+       b. Read config from Redis    — cached by /preview-api-policies, or fetch now
+       c. _db_enrich_case_from_config() — writes real insured_name, dates,
+                                          state_code, est_ytd_premium to DB so
+                                          pending cards show correct values immediately
+       d. push_to_pipeline(...)     — XADD to Redis Stream
+    3. Return immediately. Worker reads config from Redis cache (no extra HTTP
+       call for config), fetches only payroll, runs full LangGraph pipeline.
     """
     import uuid as _uuid
  
@@ -1199,14 +1329,21 @@ async def start_batch_audit_from_api(
                 # timeout=30,
             )
             resp.raise_for_status()
-            data           = resp.json()
+            data     = resp.json()
             # Mock API returns: {"policies": [{"policy_number": "...", ...}, ...]}
             # or a plain list: [{"policy_number": "..."}, ...]
-            raw_list       = data.get("policies", data) if isinstance(data, dict) else data
-            policy_numbers = [
-                p["policy_number"] if isinstance(p, dict) else str(p)
-                for p in raw_list
-            ]
+            raw_list = data.get("policies", data) if isinstance(data, dict) else data
+ 
+            for p in raw_list:
+                if isinstance(p, dict):
+                    pn = str(p.get("policy_number") or p.get("policyNumber") or "").strip()
+                    if pn:
+                        policy_numbers.append(pn)
+                else:
+                    pn = str(p).strip()
+                    if pn:
+                        policy_numbers.append(pn)
+ 
             logger.info(
                 f"[BatchAPI] Discovered {len(policy_numbers)} policies "
                 f"from Mock API for tenant={tenant.slug}"
@@ -1224,7 +1361,7 @@ async def start_batch_audit_from_api(
             detail="Mock API returned no policies to process.",
         )
  
-    # ── Step 2: Create DB rows + push to Redis ────────────────────────────────
+    # ── Step 2: Create DB rows, enrich with config, push to Redis ────────────
     redis = get_redis()
  
     for policy_number in policy_numbers:
@@ -1233,7 +1370,7 @@ async def start_batch_audit_from_api(
             continue
  
         try:
-            # a) Persist DB row (same helper used by /start and /start-from-api)
+            # a) Create the pending DB row
             case = _db_create_case(
                 schema               = schema,
                 policy_number        = policy_number,
@@ -1243,7 +1380,79 @@ async def start_batch_audit_from_api(
                 tenant_id            = tenant.slug,
             )
  
-            # b) Push to Redis Stream
+            # b) Get policy config — try Redis cache first (set by /preview-api-policies),
+            #    fall back to fetching directly from Mock API if cache is cold.
+            config      = None
+            config_json = None
+ 
+            try:
+                config_json = await redis.get(f"policy_config:{policy_number}")
+            except Exception as redis_exc:
+                logger.debug(f"[BatchAPI] Redis read failed for {policy_number}: {redis_exc}")
+ 
+            if config_json:
+                # Cache hit — config was pre-loaded by the preview step
+                try:
+                    config = json.loads(config_json) if isinstance(config_json, str) else config_json
+                    logger.debug(f"[BatchAPI] Config cache hit for {policy_number}")
+                except Exception:
+                    config = None
+            else:
+                # Cache miss — fetch config now and cache it for the worker
+                logger.info(
+                    f"[BatchAPI] Config cache miss for {policy_number} — "
+                    "fetching from Mock API"
+                )
+                try:
+                    r = requests.get(
+                        f"{MOCK_API_BASE}/policies/{policy_number}/policy-config",
+                        timeout=20,
+                    )
+                    if r.status_code == 404:
+                        logger.warning(
+                            f"[BatchAPI] Config 404 for {policy_number} — "
+                            "case will be queued without enrichment"
+                        )
+                    elif r.status_code == 200:
+                        config = r.json()
+                        # Cache so the worker skips this call later
+                        try:
+                            await redis.setex(
+                                f"policy_config:{policy_number}",
+                                POLICY_CONFIG_CACHE_TTL,
+                                json.dumps(config),
+                            )
+                        except Exception as cache_exc:
+                            logger.debug(
+                                f"[BatchAPI] Redis write failed for {policy_number}: {cache_exc}"
+                            )
+                    else:
+                        r.raise_for_status()
+                except Exception as fetch_exc:
+                    # Non-fatal — case is still queued, worker will try to fetch config
+                    logger.warning(
+                        f"[BatchAPI] Could not fetch config for {policy_number}: {fetch_exc}. "
+                        "Case queued without enrichment."
+                    )
+ 
+            # c) Enrich the pending DB row with real policy details so cards
+            #    show meaningful data (insured name, dates, est premium) immediately
+            if config:
+                try:
+                    _db_enrich_case_from_config(
+                        case_id   = case.id,
+                        policy_id = case.policy_id,
+                        config    = config,
+                        schema    = schema,
+                    )
+                except Exception as enrich_exc:
+                    # Non-fatal — enrichment failure must never block the queue
+                    logger.warning(
+                        f"[BatchAPI] Enrichment failed for {policy_number} "
+                        f"(non-fatal): {enrich_exc}"
+                    )
+ 
+            # d) Push to Redis Stream — worker picks this up and processes the pipeline
             await push_to_pipeline(
                 redis                = redis,
                 audit_case_id        = case.id,
@@ -1256,7 +1465,7 @@ async def start_batch_audit_from_api(
                 data_source          = "api",     # ← routes to api_ingestion_node
             )
  
-            # c) Invalidate cache so /cases reflects the new pending row
+            # e) Invalidate cache so /cases immediately reflects the enriched pending row
             await _invalidate_case(case.id, tenant.slug)
  
             results.append(BatchAuditResult(
@@ -1282,7 +1491,6 @@ async def start_batch_audit_from_api(
         cases        = results,
         errors       = errors,
     )
-
 
 from pydantic import BaseModel as _BaseModel   # alias avoids clash with existing import
  
@@ -1487,3 +1695,258 @@ async def update_audit_config(
         f"updated by user={user.username}"
     )
     return AuditConfig(hitl_enabled=body.hitl_enabled)
+
+
+
+
+import json
+ 
+POLICY_CONFIG_CACHE_TTL = int(os.getenv("POLICY_CONFIG_CACHE_TTL_SECS", 86400))  # 24 h
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW ENDPOINT — Preview API policies (step 1 of the 2-step batch flow)
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+class PolicyPreviewItem(BaseModel):
+    policy_number:    str
+    insured_name:     str
+    effective_date:   str
+    expiration_date:  str
+    state_code:       str
+    class_codes:      str          # comma-separated e.g. "5190, 8810"
+    est_premium:      float
+    payroll_frequency: str
+    officer_count:    int
+    available:        bool         # False if mock API returned 404
+ 
+ 
+class PolicyPreviewResponse(BaseModel):
+    total:    int
+    policies: list[PolicyPreviewItem]
+    errors:   list[str]
+ 
+ 
+@router.get("/preview-api-policies", response_model=PolicyPreviewResponse)
+async def preview_api_policies(
+    tenant: Tenant = Depends(require_tenant),
+    user:   WCUser = Depends(require_wc_super_admin),
+):
+    """
+    Step 1 of the two-step batch flow.
+ 
+    Fetches ALL policies from the Mock API, retrieves policy-config for each,
+    caches the configs in Redis (TTL=24h), and returns an enriched preview list
+    so the frontend can display a table before the user confirms the batch.
+ 
+    The frontend shows this table → user clicks "Start Batch Audit" →
+    /start-batch-from-api reads from cache (no duplicate HTTP calls).
+    """
+    errors: list[str] = []
+    redis = get_redis()
+ 
+    # ── Step 1: Discover policy numbers ──────────────────────────────────────
+    try:
+        resp = requests.get(f"{MOCK_API_BASE}/policies", timeout=30)
+        resp.raise_for_status()
+        data     = resp.json()
+        raw_list = data.get("policies", data) if isinstance(data, dict) else data
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Mock API unreachable: {exc}")
+ 
+    # ── Step 2: Fetch config for each policy, build preview + cache ───────────
+    preview_items: list[PolicyPreviewItem] = []
+ 
+    for entry in raw_list:
+        pn = (entry.get("policy_number") or entry.get("policyNumber") or str(entry)).strip()
+        if not pn:
+            continue
+ 
+        cache_key = f"policy_config:{pn}"
+ 
+        # Check if already cached from a previous preview
+        try:
+            cached_raw = await redis.get(cache_key)
+            if cached_raw:
+                config = json.loads(cached_raw)
+                logger.debug(f"[Preview] Cache hit for {pn}")
+                preview_items.append(_build_preview_item(pn, config, available=True))
+                continue
+        except Exception:
+            pass  # Redis unavailable — proceed to fetch
+ 
+        # Check if /policies already returned inline config
+        if entry.get("xml_records") or entry.get("audit_meta"):
+            config = entry
+        else:
+            # Fetch config from Mock API
+            try:
+                r = requests.get(
+                    f"{MOCK_API_BASE}/policies/{pn}/policy-config",
+                    timeout=20,
+                )
+                if r.status_code == 404:
+                    logger.warning(f"[Preview] Config 404 for {pn}")
+                    preview_items.append(PolicyPreviewItem(
+                        policy_number=pn, insured_name="—", effective_date="—",
+                        expiration_date="—", state_code="—", class_codes="—",
+                        est_premium=0, payroll_frequency="—", officer_count=0,
+                        available=False,
+                    ))
+                    errors.append(f"{pn}: not found in Mock API (404)")
+                    continue
+                r.raise_for_status()
+                config = r.json()
+            except Exception as exc:
+                errors.append(f"{pn}: config fetch failed — {exc}")
+                preview_items.append(PolicyPreviewItem(
+                    policy_number=pn, insured_name="—", effective_date="—",
+                    expiration_date="—", state_code="—", class_codes="—",
+                    est_premium=0, payroll_frequency="—", officer_count=0,
+                    available=False,
+                ))
+                continue
+ 
+        # Cache in Redis so /start-batch-from-api skips the config call
+        try:
+            await redis.setex(cache_key, POLICY_CONFIG_CACHE_TTL, json.dumps(config))
+        except Exception as cache_exc:
+            logger.warning(f"[Preview] Redis cache write failed for {pn}: {cache_exc}")
+ 
+        preview_items.append(_build_preview_item(pn, config, available=True))
+ 
+    logger.info(
+        f"[Preview] {len(preview_items)} policies previewed, "
+        f"{len(errors)} errors for tenant={tenant.slug}"
+    )
+ 
+    return PolicyPreviewResponse(
+        total    = len(preview_items),
+        policies = preview_items,
+        errors   = errors,
+    )
+ 
+ 
+def _build_preview_item(policy_number: str, config: dict, available: bool) -> "PolicyPreviewItem":
+    """Build a PolicyPreviewItem from a raw policy-config dict."""
+    xml_records  = config.get("xml_records", [])
+    audit_meta   = config.get("audit_meta", {})
+    officers     = config.get("officers", [])
+ 
+    first_xml    = xml_records[0] if xml_records else {}
+ 
+    # Collect unique class codes
+    class_codes  = ", ".join(
+        sorted({str(r.get("classCode") or r.get("ClassCode") or "").split()[0]
+                for r in xml_records if r.get("classCode") or r.get("ClassCode")})
+    ) or "—"
+ 
+    return PolicyPreviewItem(
+        policy_number    = policy_number,
+        insured_name     = first_xml.get("InsuredName", "—") or "—",
+        effective_date   = first_xml.get("EffectiveDate", "—") or "—",
+        expiration_date  = first_xml.get("ExpirationDate", "—") or "—",
+        state_code       = first_xml.get("StateCode", "—") or "—",
+        class_codes      = class_codes,
+        est_premium      = float(first_xml.get("premium", 0) or 0),
+        payroll_frequency= audit_meta.get("a_payroll_frequency", "—") or "—",
+        officer_count    = len(officers),
+        available        = available,
+    )
+
+
+import json
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# ADDITION 1 — New helper (paste below _db_create_case in wc_aduit_api.py)
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def _db_enrich_case_from_config(
+    case_id:   int,
+    policy_id: int,
+    config:    dict,
+    schema:    str,
+) -> None:
+    """
+    Write real policy details from the pre-fetched config into the DB
+    immediately after _db_create_case, before the worker picks up the job.
+ 
+    Updates:
+      wc_policies     — insured_name, effective_date, expiration_date,
+                        state_code, estimated_premium, payroll_frequency
+      wc_audit_cases  — total_earned_premium   ← THIS is what the card reads
+                        total_est_ytd_premium  ← also set for accuracy
+    """
+    if not config:
+        return
+ 
+    xml_records = config.get("xml_records", [])
+    audit_meta  = config.get("audit_meta", {})
+ 
+    if not xml_records and not audit_meta:
+        return
+ 
+    first_xml = xml_records[0] if xml_records else {}
+ 
+    def _safe_date(val):
+        if not val:
+            return None
+        from datetime import datetime as _dt
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y", "%Y/%m/%d"):
+            try:
+                return _dt.strptime(str(val).strip(), fmt).date()
+            except (ValueError, TypeError):
+                pass
+        return None
+ 
+    insured_name    = str(first_xml.get("InsuredName") or "").strip() or None
+    effective_date  = _safe_date(first_xml.get("EffectiveDate"))
+    expiration_date = _safe_date(first_xml.get("ExpirationDate"))
+    state_code      = str(first_xml.get("StateCode") or "").strip()[:5] or None
+    est_premium     = float(first_xml.get("premium") or 0)
+    payroll_freq    = str(audit_meta.get("a_payroll_frequency") or "1W").strip()
+ 
+    # Sum EstPremium across all class codes — this is displayed as the card premium
+    total_est_ytd = sum(float(r.get("EstPremium") or 0) for r in xml_records)
+ 
+    db = _db_session(schema)
+    try:
+        # ── wc_policies — replace placeholder values ──────────────────────────
+        policy = db.query(Policy).filter(Policy.id == policy_id).first()
+        if policy:
+            if insured_name:
+                policy.insured_name = insured_name
+            if effective_date:
+                policy.effective_date = effective_date
+            if expiration_date:
+                policy.expiration_date = expiration_date
+            if state_code and state_code not in ("XX", ""):
+                policy.state_code = state_code
+            if est_premium:
+                policy.estimated_premium = est_premium
+            if payroll_freq:
+                policy.payroll_frequency = payroll_freq
+            policy.updated_at = datetime.utcnow()
+ 
+        # ── wc_audit_cases — set BOTH premium fields ──────────────────────────
+        case = db.query(AuditCase).filter(AuditCase.id == case_id).first()
+        if case and total_est_ytd:
+            case.total_earned_premium  = total_est_ytd   # ← card reads this field
+            case.total_est_ytd_premium = total_est_ytd   # ← also set for accuracy
+            case.updated_at            = datetime.utcnow()
+ 
+        db.commit()
+        logger.info(
+            f"[API] Case {case_id} enriched: insured='{insured_name}' "
+            f"state={state_code} premium={total_est_ytd:.2f}"
+        )
+ 
+    except Exception as exc:
+        db.rollback()
+        logger.warning(
+            f"[API] _db_enrich_case_from_config failed for case {case_id} "
+            f"(non-fatal): {exc}"
+        )
+    finally:
+        db.close()

@@ -259,3 +259,9 @@ export async function updateAuditConfig(payload) {
   return data;
 }
  
+
+
+  export async function previewAPIPolicies() {
+    const { data } = await apiClient.get("/wc-audit/preview-api-policies");
+    return data;  // { total, policies: [{policy_number, insured_name, ...}], errors }
+  }

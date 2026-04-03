@@ -2823,6 +2823,7 @@ import {
   clearAllAuditData,
   getAuditConfig,
   updateAuditConfig,
+  previewAPIPolicies
 } from "../../api/wcAuditAPI";
  
 
@@ -2988,7 +2989,8 @@ function buildMonthlyAuditData(cases) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 function Dashboard({ setScreen, setSelectedCase, cases }) {
   const [hovered, setHovered] = useState(null);
- 
+  console.log("intial cases data",cases);
+  
   const high    = cases.filter(c => c.risk_level === "high").length;
   const done    = cases.filter(c => c.status === "completed").length;
   // const refunds = cases.filter(c => c.recommendation === "refund")
@@ -3006,7 +3008,9 @@ function Dashboard({ setScreen, setSelectedCase, cases }) {
   const totalEstYTDPremium  = cases.reduce((sum, c) => sum + (c.overall_variance?.est_ytd_premium || 0), 0);
  
   // AI Insights derived from live data
-  const highVarianceCases   = cases.filter(c => (c.variance_pct || 0) > 25).length;
+  const highVarianceCases   = cases.filter(c => Math.abs(c.variance_pct) > 25).length;
+  console.log("cases variance perecntage more than 20", cases.filter(c=>(Math.abs(c.variance_pct)>20)));
+  
   const additionalPremCases = cases.filter(c => c.recommendation === "additional_premium").length;
   const pendingCases        = cases.filter(c => ["pending","running"].includes(c.status)).length;
   const hitlPending         = cases.filter(c => c.hitl_required && c.status !== "completed").length;
@@ -3118,7 +3122,7 @@ function Dashboard({ setScreen, setSelectedCase, cases }) {
                       onClick={() => { setSelectedCase(c); setScreen("audit-detail"); }}>
                       {c.policy_number}
                     </td>
-                    <td style={{ padding:"12px 12px", fontSize:13, color:C.muted }}>—</td>
+                    <td style={{ padding:"12px 12px", fontSize:13, color:C.muted }}>{c.insured_name}</td>
                     <td style={{ padding:"12px 12px", fontSize:13, fontWeight:700, color:C.muted }}>{c.class_code_variance[0]?.StateCode}</td>
                     <td style={{ padding:"12px 12px", fontWeight:700, fontSize:13,
                       color:(c.variance_pct || 0) > 20 ? C.red : (c.variance_pct || 0) > 10 ? C.amber : C.green }}>
@@ -3263,7 +3267,7 @@ function PoliciesScreen({ setScreen, setSelectedCase, cases, onRefresh }) {
                     </td>
  
                     {/* Insured Name — not returned by current API */}
-                    <td style={{ padding:"13px 14px", fontSize:13, color:C.muted }}>{c.insured}</td>
+                    <td style={{ padding:"13px 14px", fontSize:13, color:C.muted }}>{c.insured_name}</td>
  
                     {/* St. — not returned by current API */}
                     <td style={{ padding:"13px 14px", fontSize:13, fontWeight:700, color:C.muted }}>{c.class_code_variance[0]?.StateCode}</td>
@@ -4130,7 +4134,7 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId, batchCa
   const [hitlQueuedIds,   setHitlQueuedIds]   = useState([]); // cases waiting for HITL
   const [activeHITLCase,  setActiveHITLCase]  = useState(null); // currently displayed HITL
   const batchPollsRef = useRef({});  // caseId → stop function
-  const [batchView,        setBatchView]        = useState("card");  // "card" | "table"
+  const [batchView,        setBatchView]        = useState("table");  // "card" | "table"
  
   const isBatchMode = batchCaseIds && batchCaseIds.length > 0;
  
@@ -4552,13 +4556,31 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId, batchCa
                       )}
 
                       {/* Earned premium */}
-                      {s?.overall_variance?.earned_premium != null && (
+                      {/* {s?.overall_variance?.earned_premium != null && (
                         <div style={{ marginTop:6, fontSize:11, color:C.muted }}>
                           Premium: <strong style={{ color:C.text }}>
                             {money(Math.round(s.overall_variance.earned_premium))}
                           </strong>
                         </div>
-                      )}
+                      )} */}
+                      {(() => {
+                        const ov       = s?.overall_variance || {};
+                        const isPend   = ["pending","processing","running"].includes(s?.status);
+                        const premium  = isPend
+                          ? (ov.earned_premium  || ov.est_ytd_premium || 0)
+                          : (ov.earned_premium  || ov.est_ytd_premium || 0);
+                        const label    = (isPend && !ov.earned_premium && ov.est_ytd_premium)
+                          ? "Est. Premium"
+                          : "Premium";
+                        if (!premium) return null;
+                        return (
+                          <div style={{ marginTop:6, fontSize:11, color:C.muted }}>
+                            {label}: <strong style={{ color:C.text }}>
+                              {money(Math.round(premium))}
+                            </strong>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -4654,11 +4676,20 @@ function AIAuditScreen({ cases, onCaseCreated, activeCaseId: propCaseId, batchCa
                           </td>
 
                           {/* Earned Premium */}
-                          <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600,
+                          {/* <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600,
                             color:C.text }}>
                             {s?.overall_variance?.earned_premium != null
                               ? money(Math.round(s.overall_variance.earned_premium))
                               : "—"}
+                          </td> */}
+
+                          <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600,
+                            color:C.text }}>
+                            {(() => {
+                              const ov      = s?.overall_variance || {};
+                              const premium = ov.earned_premium || ov.est_ytd_premium || 0;
+                              return premium ? money(Math.round(premium)) : "—";
+                            })()}
                           </td>
 
                           {/* Recommendation */}
@@ -4853,6 +4884,18 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
       setSubmitting(false);
     }
   };
+
+  const buildClassCodeChartData = (data) => {
+  return (data.class_code_variance || []).map(row => ({
+    code: row.ClassCode,
+    earned: row.earned_premium,
+    estimated: row.est_ytd_premium,
+    variance: row.variance,
+    variance_pct: row.variance_pct
+  }));
+};
+
+const chartData = buildClassCodeChartData(detail);
  
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
@@ -4990,7 +5033,7 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                 <table style={{ width:"100%", borderCollapse:"collapse" }}>
                   <thead>
                     <tr style={{ borderBottom:`2px solid ${C.border}`, background:"#F8FAFD" }}>
-                      {["Class Code","Description","EST Exposure","Earned Exposure","Delta","Flag"].map(h => (
+                      {["Class Code","Description","EST YTD Premium","Earned Premium","Delta","Flag"].map(h => (
                         <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:11,
                           color:C.muted, fontWeight:700, textTransform:"uppercase" }}>{h}</th>
                       ))}
@@ -4998,7 +5041,7 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                   </thead>
                   <tbody>
                     {detail.class_code_variance.map((row, i) => {
-                      const delta = (row.est_exposure || 0) - (row.earned_exposure || 0);
+                      const delta = (row.est_ytd_premium || 0) - (row.earned_premium || 0);
                       return (
                         <tr key={i} style={{ borderBottom:`1px solid ${C.border}` }}>
                           <td style={{ padding:"12px 14px", fontSize:13, fontWeight:700, color:C.accent }}>
@@ -5008,10 +5051,10 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                             {row.StateCode}
                           </td>
                           <td style={{ padding:"12px 14px", fontSize:13 }}>
-                            {money(Math.round(row.est_exposure || 0))}
+                            {money(Math.round(row.est_ytd_premium || 0))}
                           </td>
                           <td style={{ padding:"12px 14px", fontSize:13 }}>
-                            {money(Math.round(row.earned_exposure || 0))}
+                            {money(Math.round(row.earned_premium || 0))}
                           </td>
                           <td style={{ padding:"12px 14px", fontSize:13, fontWeight:700,
                             color: delta > 0 ? C.red : C.green }}>
@@ -5028,6 +5071,43 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
                   </tbody>
                 </table>
               )}
+              <div style={{
+  background: C.card,
+  border: `1px solid ${C.border}`,
+  borderRadius: 14,
+  padding: 24
+}}>
+  <SectionHeader
+    title="Variance by Class Code"
+    sub="Positive = Additional Premium | Negative = Refund"
+  />
+
+  <ResponsiveContainer width="100%" height={220}>
+    <BarChart data={chartData}>
+      <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+      
+      <XAxis dataKey="code" />
+      <YAxis />
+      
+      <Tooltip
+        formatter={(value) => `$${value.toLocaleString()}`}
+      />
+
+      <Bar
+        dataKey="variance"
+        name="Variance"
+        radius={[4,4,0,0]}
+      >
+        {chartData.map((entry, index) => (
+          <Cell
+            key={`cell-${index}`}
+            fill={entry.variance > 0 ? C.red : C.green}
+          />
+        ))}
+      </Bar>
+    </BarChart>
+  </ResponsiveContainer>
+</div>
             </div>
           )}
  
@@ -5370,8 +5450,328 @@ function AuditDetail({ auditCase, setScreen, onHITLDecision }) {
 
 
 
+// function DataUpload({ onAuditStarted, onBatchStarted }) {
+//   // ── File-upload state ────────────────────────────────────────────
+//   const [payrollFile,  setPayrollFile]  = useState(null);
+//   const [policyFile,   setPolicyFile]   = useState(null);
+//   const [metaFile,     setMetaFile]     = useState(null);
+//   const [policyNumber, setPolicyNumber] = useState("");
+//   const [dragging,     setDragging]     = useState(null);
+//   const [uploading,    setUploading]    = useState(false);
+//   const [uploadResult, setUploadResult] = useState(null);
+//   const [starting,     setStarting]     = useState(false);
+//   const [started,      setStarted]      = useState(null);
+//   const [error,        setError]        = useState(null);
+ 
+//   // ── Batch-API state ──────────────────────────────────────────────
+//   const [apiMode,        setApiMode]        = useState(false);   // toggles the tab
+//   const [fetchingAPI,    setFetchingAPI]     = useState(false);
+//   const [batchResult,    setBatchResult]     = useState(null);   // API response
+//   const [batchError,     setBatchError]      = useState(null);
+ 
+//   const allReady = payrollFile && policyFile && metaFile && policyNumber.trim();
+ 
+//   // ── File upload handlers (unchanged) ────────────────────────────
+//   const handleUpload = async () => {
+//     if (!allReady) return;
+//     setUploading(true); setError(null);
+//     try {
+//       const result = await uploadAuditFiles(payrollFile, policyFile, metaFile);
+//       setUploadResult(result);
+//     } catch (err) {
+//       setError(err.response?.data?.detail || err.message);
+//     } finally {
+//       setUploading(false);
+//     }
+//   };
+ 
+//   const handleStart = async () => {
+//     if (!uploadResult) return;
+//     setStarting(true); setError(null);
+//     try {
+//       const result = await startAudit({
+//         policy_number:        policyNumber.trim(),
+//         payroll_file_path:    uploadResult.payroll_file_path,
+//         policy_xml_path:      uploadResult.policy_xml_path,
+//         audit_meta_file_path: uploadResult.audit_meta_file_path,
+//       });
+//       setStarted(result);
+//       onAuditStarted?.(result.audit_case_id);
+//     } catch (err) {
+//       setError(err.response?.data?.detail || err.message);
+//     } finally {
+//       setStarting(false);
+//     }
+//   };
+ 
+//   // ── Batch API handler ────────────────────────────────────────────
+//   const handleFetchFromAPI = async () => {
+//     setFetchingAPI(true); setBatchError(null); setBatchResult(null);
+//     try {
+//       const result = await startBatchAuditFromAPI(); // no args → fetch all policies
+//       setBatchResult(result);
+//       onBatchStarted?.(result.cases.map(c => c.audit_case_id));
+//     } catch (err) {
+//       setBatchError(err.response?.data?.detail || err.message);
+//     } finally {
+//       setFetchingAPI(false);
+//     }
+//   };
+ 
+//   const FileDropZone = ({ label, file, setFile, accept, dragKey }) => (
+//     <div
+//       style={{ background:dragging === dragKey ? "#EEF2FF" : C.bg,
+//         border:`2px dashed ${dragging === dragKey ? C.accent : C.border}`,
+//         borderRadius:12, padding:"20px 24px", cursor:"pointer", transition:"all 0.2s",
+//         display:"flex", alignItems:"center", gap:14 }}
+//       onDragOver={e => { e.preventDefault(); setDragging(dragKey); }}
+//       onDragLeave={() => setDragging(null)}
+//       onDrop={e => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
+//       onClick={() => document.getElementById(`inp-${dragKey}`).click()}>
+//       <span style={{ fontSize:28 }}>{file ? "✅" : "📂"}</span>
+//       <div>
+//         <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{label}</div>
+//         <div style={{ fontSize:12, color:C.muted }}>{file ? file.name : `Drop or click to select — ${accept}`}</div>
+//       </div>
+//       <input id={`inp-${dragKey}`} type="file" accept={accept} style={{ display:"none" }}
+//         onChange={e => e.target.files[0] && setFile(e.target.files[0])} />
+//     </div>
+//   );
+ 
+//   return (
+//     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+ 
+//       {/* ── Source selector tabs ──────────────────────────────────── */}
+//       <div style={{ display:"flex", gap:0, background:C.bg, borderRadius:12,
+//         border:`1px solid ${C.border}`, overflow:"hidden", alignSelf:"flex-start" }}>
+//         {[
+//           { key:false, label:"📂  File Upload",  desc:"Upload Excel & XML files" },
+//           { key:true,  label:"🔌  Fetch from API", desc:"Pull all policies from Mock API" },
+//         ].map(tab => (
+//           <button key={String(tab.key)} onClick={() => setApiMode(tab.key)}
+//             style={{ padding:"12px 28px", border:"none", cursor:"pointer",
+//               background: apiMode === tab.key
+//                 ? `linear-gradient(135deg, ${C.accent}, ${C.teal})`
+//                 : "transparent",
+//               color: apiMode === tab.key ? "#fff" : C.muted,
+//               fontWeight:700, fontSize:13, transition:"all 0.2s",
+//               borderRight:`1px solid ${C.border}` }}>
+//             {tab.label}
+//           </button>
+//         ))}
+//       </div>
+ 
+//       {/* ══════════════════════════════════════════════════════════════
+//           FILE UPLOAD TAB  (original UI, unchanged)
+//       ══════════════════════════════════════════════════════════════ */}
+//       {!apiMode && (
+//         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
+//           <SectionHeader title="Run New Audit"
+//             sub="Upload three source files, enter policy number, then start the AI pipeline" />
+ 
+//           <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
+//             <FileDropZone label="Payroll Excel (.xlsx)"  file={payrollFile} setFile={setPayrollFile} accept=".xlsx" dragKey="payroll" />
+//             <FileDropZone label="Policy XML (.xml)"      file={policyFile}  setFile={setPolicyFile}  accept=".xml"  dragKey="policy" />
+//             <FileDropZone label="Audit Metadata (.xlsx)" file={metaFile}    setFile={setMetaFile}    accept=".xlsx" dragKey="meta" />
+//           </div>
+ 
+//           <div style={{ marginBottom:20 }}>
+//             <label style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
+//               letterSpacing:0.8, display:"block", marginBottom:6 }}>Policy Number</label>
+//             <input value={policyNumber} onChange={e => setPolicyNumber(e.target.value)}
+//               placeholder="e.g. MWC0183363-05"
+//               style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", fontSize:13,
+//                 width:"100%", outline:"none", color:C.text, boxSizing:"border-box", maxWidth:340 }} />
+//           </div>
+ 
+//           {error && (
+//             <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+//               border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+//               ✗ {error}
+//             </div>
+//           )}
+ 
+//           <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+//             {!uploadResult ? (
+//               <button disabled={!allReady || uploading} onClick={handleUpload}
+//                 style={{ background:allReady ? C.accent : C.border, color:"#fff", border:"none",
+//                   borderRadius:10, padding:"11px 28px", fontSize:14, fontWeight:700,
+//                   cursor:allReady && !uploading ? "pointer" : "default",
+//                   opacity:uploading ? 0.7 : 1 }}>
+//                 {uploading ? "⚙️ Uploading..." : "⬆ Upload Files"}
+//               </button>
+//             ) : !started ? (
+//               <>
+//                 <div style={{ padding:"8px 16px", background:"#DCFCE7", borderRadius:8,
+//                   fontSize:13, fontWeight:600, color:"#15803D" }}>
+//                   ✓ Files uploaded — Session: {uploadResult.session_id}
+//                 </div>
+//                 <button disabled={starting} onClick={handleStart}
+//                   style={{ background:C.green, color:"#fff", border:"none", borderRadius:10,
+//                     padding:"11px 28px", fontSize:14, fontWeight:700,
+//                     cursor:starting ? "default" : "pointer", opacity:starting ? 0.7 : 1 }}>
+//                   {starting ? "⚙️ Starting..." : "▶ Start AI Audit"}
+//                 </button>
+//               </>
+//             ) : (
+//               <div style={{ padding:"12px 20px", background:"#DCFCE7", borderRadius:10,
+//                 border:`1px solid #86EFAC`, fontSize:14, fontWeight:700, color:"#15803D" }}>
+//                 🚀 Audit started! Case #{started.audit_case_id} — Check AI Audit screen for live progress.
+//               </div>
+//             )}
+//           </div>
+//         </div>
+//       )}
+ 
+//       {/* ══════════════════════════════════════════════════════════════
+//           API FETCH TAB  (new)
+//       ══════════════════════════════════════════════════════════════ */}
+//       {apiMode && (
+//         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
+//           <SectionHeader
+//             title="Fetch All Policies from API"
+//             sub="Pulls every available policy from the Mock API and queues them for audit. No file upload needed." />
+ 
+//           {/* Info banner */}
+//           <div style={{ display:"flex", gap:16, marginBottom:24 }}>
+//             {[
+//               { icon:"🔌", title:"Mock API Source",  desc:"Reads payroll, policy config, and audit metadata directly from the API" },
+//               { icon:"⚡", title:"Batch Processing", desc:"All policies are pushed to the Redis queue simultaneously" },
+//               { icon:"🤖", title:"Same Pipeline",    desc:"Each policy runs the full LangGraph agent pipeline with HITL when required" },
+//             ].map((item, i) => (
+//               <div key={i} style={{ flex:1, background:C.bg, borderRadius:12, padding:"16px 18px",
+//                 border:`1px solid ${C.border}` }}>
+//                 <div style={{ fontSize:22, marginBottom:8 }}>{item.icon}</div>
+//                 <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:4 }}>{item.title}</div>
+//                 <div style={{ fontSize:12, color:C.muted, lineHeight:1.5 }}>{item.desc}</div>
+//               </div>
+//             ))}
+//           </div>
+ 
+//           {/* Error */}
+//           {batchError && (
+//             <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+//               border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+//               ✗ {batchError}
+//             </div>
+//           )}
+ 
+//           {/* CTA or result */}
+//           {!batchResult ? (
+//             <button
+//               disabled={fetchingAPI}
+//               onClick={handleFetchFromAPI}
+//               style={{ background:fetchingAPI ? C.border : `linear-gradient(135deg, ${C.accent}, ${C.teal})`,
+//                 color:"#fff", border:"none", borderRadius:10, padding:"13px 32px",
+//                 fontSize:15, fontWeight:800, cursor:fetchingAPI ? "default" : "pointer",
+//                 display:"flex", alignItems:"center", gap:10, transition:"all 0.2s",
+//                 opacity:fetchingAPI ? 0.7 : 1, boxShadow:fetchingAPI ? "none" : "0 4px 16px rgba(30,111,217,0.3)" }}>
+//               {fetchingAPI
+//                 ? <><span style={{ fontSize:18 }}>⚙️</span> Fetching &amp; Queuing Policies…</>
+//                 : <><span style={{ fontSize:18 }}>🔌</span> Fetch All Policies from API</>
+//               }
+//             </button>
+//           ) : (
+//             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+ 
+//               {/* Success summary */}
+//               <div style={{ padding:"16px 20px", background:"#DCFCE7", borderRadius:12,
+//                 border:`1px solid #86EFAC`, display:"flex", alignItems:"center", gap:14 }}>
+//                 <span style={{ fontSize:28 }}>🚀</span>
+//                 <div>
+//                   <div style={{ fontSize:15, fontWeight:800, color:"#15803D" }}>
+//                     {batchResult.total_queued} policies queued for audit!
+//                   </div>
+//                   <div style={{ fontSize:12, color:"#166534", marginTop:2 }}>
+//                     Batch ID: {batchResult.batch_id} — Monitor progress on the AI Audit screen.
+//                   </div>
+//                 </div>
+//               </div>
+ 
+//               {/* Policy case list */}
+//               <div style={{ background:C.bg, borderRadius:12, border:`1px solid ${C.border}`,
+//                 overflow:"hidden" }}>
+//                 <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`,
+//                   fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
+//                   letterSpacing:0.8, display:"flex", gap:0 }}>
+//                   <span style={{ flex:2 }}>Policy Number</span>
+//                   <span style={{ flex:1 }}>Case ID</span>
+//                   <span style={{ flex:1 }}>Status</span>
+//                 </div>
+//                 <div style={{ maxHeight:260, overflowY:"auto" }}>
+//                   {batchResult.cases.map((c, i) => (
+//                     <div key={c.audit_case_id}
+//                       style={{ display:"flex", padding:"11px 16px", alignItems:"center",
+//                         borderBottom:`1px solid ${C.border}`,
+//                         background: i % 2 === 0 ? "#fff" : C.bg }}>
+//                       <span style={{ flex:2, fontSize:13, fontWeight:700, color:C.accent }}>
+//                         {c.policy_number}
+//                       </span>
+//                       <span style={{ flex:1, fontSize:13, color:C.text }}>
+//                         #{c.audit_case_id}
+//                       </span>
+//                       <span style={{ flex:1 }}>
+//                         <StatusBadge status="pending" />
+//                       </span>
+//                     </div>
+//                   ))}
+//                 </div>
+//               </div>
+ 
+//               {/* API errors if any */}
+//               {batchResult.errors?.length > 0 && (
+//                 <div style={{ padding:"12px 16px", background:"#FEF3C7", borderRadius:10,
+//                   border:`1px solid ${C.amber}`, fontSize:12, color:"#92400E" }}>
+//                   ⚠️ <strong>{batchResult.errors.length} policy(ies) failed to queue:</strong>
+//                   <ul style={{ margin:"6px 0 0 16px", padding:0 }}>
+//                     {batchResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+//                   </ul>
+//                 </div>
+//               )}
+ 
+//               {/* Reset */}
+//               <button onClick={() => { setBatchResult(null); setBatchError(null); }}
+//                 style={{ alignSelf:"flex-start", background:C.bg, border:`1px solid ${C.border}`,
+//                   borderRadius:8, padding:"7px 16px", fontSize:12, cursor:"pointer", color:C.muted }}>
+//                 ↺ Run another batch
+//               </button>
+//             </div>
+//           )}
+//         </div>
+//       )}
+ 
+//       {/* How it works */}
+//       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24 }}>
+//         <SectionHeader title="How it works" sub={apiMode ? "API batch audit pipeline" : "The 3-step file audit pipeline"} />
+//         <div style={{ display:"flex", gap:16 }}>
+//           {(apiMode ? [
+//             { n:"1", title:"Discover",  desc:"Backend calls Mock API GET /policies to retrieve all policy numbers in your account.", icon:"🔌" },
+//             { n:"2", title:"Queue All", desc:"Each policy gets its own DB row and is pushed to the Redis Stream with data_source='api'.", icon:"⚡" },
+//             { n:"3", title:"Process",   desc:"Worker picks up policies one by one. Each runs the full agent pipeline with HITL if high-risk.", icon:"🤖" },
+//           ] : [
+//             { n:"1", title:"Upload",  desc:"Drop payroll Excel, policy XML, and audit metadata. Files are securely processed.", icon:"📂" },
+//             { n:"2", title:"Analyze", desc:"LangGraph multi-agent pipeline: Ingestion → Specialist agents → Premium calculation → AI narrative.", icon:"🤖" },
+//             { n:"3", title:"Review",  desc:"Auditor reviews variance report, HITL decisions, and AI explanation. Download final report.", icon:"📊" },
+//           ]).map(s => (
+//             <div key={s.n} style={{ flex:1, background:C.bg, borderRadius:12, padding:"18px 20px" }}>
+//               <div style={{ width:32, height:32, borderRadius:"50%",
+//                 background:`linear-gradient(135deg, ${C.accent}, ${C.teal})`,
+//                 color:"#fff", display:"flex", alignItems:"center", justifyContent:"center",
+//                 fontWeight:800, fontSize:14, marginBottom:12 }}>{s.n}</div>
+//               <div style={{ fontSize:16 }}>{s.icon}</div>
+//               <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:6 }}>{s.title}</div>
+//               <div style={{ fontSize:12, color:C.muted, lineHeight:1.6 }}>{s.desc}</div>
+//             </div>
+//           ))}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
 function DataUpload({ onAuditStarted, onBatchStarted }) {
-  // ── File-upload state ────────────────────────────────────────────
+  // ── File-upload state (unchanged) ─────────────────────────────────
   const [payrollFile,  setPayrollFile]  = useState(null);
   const [policyFile,   setPolicyFile]   = useState(null);
   const [metaFile,     setMetaFile]     = useState(null);
@@ -5383,15 +5783,21 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
   const [started,      setStarted]      = useState(null);
   const [error,        setError]        = useState(null);
  
-  // ── Batch-API state ──────────────────────────────────────────────
-  const [apiMode,        setApiMode]        = useState(false);   // toggles the tab
-  const [fetchingAPI,    setFetchingAPI]     = useState(false);
-  const [batchResult,    setBatchResult]     = useState(null);   // API response
-  const [batchError,     setBatchError]      = useState(null);
+  // ── API Batch state (two-step) ─────────────────────────────────────
+  const [apiMode,       setApiMode]       = useState(false);
+  // Step 1 — Preview
+  const [previewing,    setPreviewing]    = useState(false);
+  const [previewData,   setPreviewData]   = useState(null);   // PolicyPreviewResponse
+  const [previewError,  setPreviewError]  = useState(null);
+  // Step 2 — Start batch
+  const [starting2,     setStarting2]     = useState(false);
+  const [batchResult,   setBatchResult]   = useState(null);
+  const [batchError,    setBatchError]    = useState(null);
  
   const allReady = payrollFile && policyFile && metaFile && policyNumber.trim();
+  const money    = (n) => n == null ? "—" : `$${Number(n).toLocaleString(undefined, {minimumFractionDigits:0})}`;
  
-  // ── File upload handlers (unchanged) ────────────────────────────
+  // ── File upload handlers (unchanged) ──────────────────────────────
   const handleUpload = async () => {
     if (!allReady) return;
     setUploading(true); setError(null);
@@ -5424,18 +5830,36 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
     }
   };
  
-  // ── Batch API handler ────────────────────────────────────────────
-  const handleFetchFromAPI = async () => {
-    setFetchingAPI(true); setBatchError(null); setBatchResult(null);
+  // ── Step 1: Preview policies ───────────────────────────────────────
+  const handlePreview = async () => {
+    setPreviewing(true); setPreviewError(null); setPreviewData(null); setBatchResult(null);
     try {
-      const result = await startBatchAuditFromAPI(); // no args → fetch all policies
+      const result = await previewAPIPolicies();  // GET /wc-audit/preview-api-policies
+      setPreviewData(result);
+    } catch (err) {
+      setPreviewError(err.response?.data?.detail || err.message || "Preview failed");
+    } finally {
+      setPreviewing(false);
+    }
+  };
+ 
+  // ── Step 2: Start the batch ────────────────────────────────────────
+  const handleStartBatch = async () => {
+    setStarting2(true); setBatchError(null);
+    try {
+      const result = await startBatchAuditFromAPI();
       setBatchResult(result);
       onBatchStarted?.(result.cases.map(c => c.audit_case_id));
     } catch (err) {
-      setBatchError(err.response?.data?.detail || err.message);
+      setBatchError(err.response?.data?.detail || err.message || "Batch start failed");
     } finally {
-      setFetchingAPI(false);
+      setStarting2(false);
     }
+  };
+ 
+  const handleReset = () => {
+    setPreviewData(null); setPreviewError(null);
+    setBatchResult(null); setBatchError(null);
   };
  
   const FileDropZone = ({ label, file, setFile, accept, dragKey }) => (
@@ -5446,12 +5870,15 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
         display:"flex", alignItems:"center", gap:14 }}
       onDragOver={e => { e.preventDefault(); setDragging(dragKey); }}
       onDragLeave={() => setDragging(null)}
-      onDrop={e => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
+      onDrop={e => { e.preventDefault(); setDragging(null);
+        const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
       onClick={() => document.getElementById(`inp-${dragKey}`).click()}>
       <span style={{ fontSize:28 }}>{file ? "✅" : "📂"}</span>
       <div>
         <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{label}</div>
-        <div style={{ fontSize:12, color:C.muted }}>{file ? file.name : `Drop or click to select — ${accept}`}</div>
+        <div style={{ fontSize:12, color:C.muted }}>
+          {file ? file.name : `Drop or click to select — ${accept}`}
+        </div>
       </div>
       <input id={`inp-${dragKey}`} type="file" accept={accept} style={{ display:"none" }}
         onChange={e => e.target.files[0] && setFile(e.target.files[0])} />
@@ -5465,10 +5892,10 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
       <div style={{ display:"flex", gap:0, background:C.bg, borderRadius:12,
         border:`1px solid ${C.border}`, overflow:"hidden", alignSelf:"flex-start" }}>
         {[
-          { key:false, label:"📂  File Upload",  desc:"Upload Excel & XML files" },
+          { key:false, label:"📂  File Upload",    desc:"Upload Excel & XML files" },
           { key:true,  label:"🔌  Fetch from API", desc:"Pull all policies from Mock API" },
         ].map(tab => (
-          <button key={String(tab.key)} onClick={() => setApiMode(tab.key)}
+          <button key={String(tab.key)} onClick={() => { setApiMode(tab.key); handleReset(); }}
             style={{ padding:"12px 28px", border:"none", cursor:"pointer",
               background: apiMode === tab.key
                 ? `linear-gradient(135deg, ${C.accent}, ${C.teal})`
@@ -5482,7 +5909,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
       </div>
  
       {/* ══════════════════════════════════════════════════════════════
-          FILE UPLOAD TAB  (original UI, unchanged)
+          FILE UPLOAD TAB
       ══════════════════════════════════════════════════════════════ */}
       {!apiMode && (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
@@ -5506,9 +5933,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
  
           {error && (
             <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
-              border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
-              ✗ {error}
-            </div>
+              border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>✗ {error}</div>
           )}
  
           <div style={{ display:"flex", gap:12, alignItems:"center" }}>
@@ -5516,8 +5941,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
               <button disabled={!allReady || uploading} onClick={handleUpload}
                 style={{ background:allReady ? C.accent : C.border, color:"#fff", border:"none",
                   borderRadius:10, padding:"11px 28px", fontSize:14, fontWeight:700,
-                  cursor:allReady && !uploading ? "pointer" : "default",
-                  opacity:uploading ? 0.7 : 1 }}>
+                  cursor:allReady && !uploading ? "pointer" : "default", opacity:uploading ? 0.7 : 1 }}>
                 {uploading ? "⚙️ Uploading..." : "⬆ Upload Files"}
               </button>
             ) : !started ? (
@@ -5544,57 +5968,205 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
       )}
  
       {/* ══════════════════════════════════════════════════════════════
-          API FETCH TAB  (new)
+          API FETCH TAB — two-step: Preview → Start Batch
       ══════════════════════════════════════════════════════════════ */}
       {apiMode && (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
-          <SectionHeader
-            title="Fetch All Policies from API"
-            sub="Pulls every available policy from the Mock API and queues them for audit. No file upload needed." />
  
-          {/* Info banner */}
-          <div style={{ display:"flex", gap:16, marginBottom:24 }}>
-            {[
-              { icon:"🔌", title:"Mock API Source",  desc:"Reads payroll, policy config, and audit metadata directly from the API" },
-              { icon:"⚡", title:"Batch Processing", desc:"All policies are pushed to the Redis queue simultaneously" },
-              { icon:"🤖", title:"Same Pipeline",    desc:"Each policy runs the full LangGraph agent pipeline with HITL when required" },
-            ].map((item, i) => (
-              <div key={i} style={{ flex:1, background:C.bg, borderRadius:12, padding:"16px 18px",
-                border:`1px solid ${C.border}` }}>
-                <div style={{ fontSize:22, marginBottom:8 }}>{item.icon}</div>
-                <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:4 }}>{item.title}</div>
-                <div style={{ fontSize:12, color:C.muted, lineHeight:1.5 }}>{item.desc}</div>
+          {/* ── IDLE: nothing loaded yet ── */}
+          {!previewData && !batchResult && (
+            <>
+              <SectionHeader
+                title="Fetch All Policies from API"
+                sub="Preview available policies before starting the batch audit" />
+ 
+              {/* Info cards */}
+              <div style={{ display:"flex", gap:14, marginBottom:24 }}>
+                {[
+                  { icon:"🔍", title:"Preview First",    desc:"Loads all policy details from the Mock API so you can review before committing" },
+                  { icon:"⚡", title:"Cache & Queue",    desc:"Policy configs are cached in Redis — worker only fetches payroll data" },
+                  { icon:"🤖", title:"Full Pipeline",    desc:"Each policy runs the complete LangGraph pipeline with HITL when required" },
+                ].map((item, i) => (
+                  <div key={i} style={{ flex:1, background:C.bg, borderRadius:12,
+                    padding:"16px 18px", border:`1px solid ${C.border}` }}>
+                    <div style={{ fontSize:22, marginBottom:8 }}>{item.icon}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:4 }}>{item.title}</div>
+                    <div style={{ fontSize:12, color:C.muted, lineHeight:1.5 }}>{item.desc}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
  
-          {/* Error */}
-          {batchError && (
-            <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
-              border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
-              ✗ {batchError}
+              {previewError && (
+                <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+                  border:`1px solid #FECACA`, fontSize:13, color:"#991B1B", marginBottom:16 }}>
+                  ✗ {previewError}
+                </div>
+              )}
+ 
+              {/* Step 1 button */}
+              <button disabled={previewing} onClick={handlePreview}
+                style={{
+                  background: previewing ? C.border : `linear-gradient(135deg, ${C.accent}, ${C.teal})`,
+                  color:"#fff", border:"none", borderRadius:10, padding:"13px 32px",
+                  fontSize:15, fontWeight:800, cursor:previewing ? "default" : "pointer",
+                  display:"flex", alignItems:"center", gap:10, transition:"all 0.2s",
+                  opacity:previewing ? 0.7 : 1,
+                  boxShadow:previewing ? "none" : "0 4px 16px rgba(30,111,217,0.3)",
+                }}>
+                {previewing
+                  ? <><span style={{ fontSize:18 }}>⚙️</span> Loading Policy Details…</>
+                  : <><span style={{ fontSize:18 }}>🔍</span> Preview Policies from API</>
+                }
+              </button>
+            </>
+          )}
+ 
+          {/* ── STEP 1 DONE: Policy preview table ── */}
+          {previewData && !batchResult && (
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+ 
+              {/* Summary bar */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                flexWrap:"wrap", gap:12 }}>
+                <div>
+                  <h3 style={{ margin:0, fontSize:17, fontWeight:800, color:C.text }}>
+                    Policy Preview — {previewData.total} Policies Found
+                  </h3>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:3 }}>
+                    Policy details loaded and cached. Review below, then start the batch.
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={handleReset}
+                    style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
+                      padding:"7px 14px", fontSize:12, cursor:"pointer", color:C.muted, fontWeight:600 }}>
+                    ↺ Reload
+                  </button>
+                  <button onClick={handleStartBatch} disabled={starting2}
+                    style={{
+                      background: starting2 ? "#86EFAC" : C.green,
+                      color:"#fff", border:"none", borderRadius:10,
+                      padding:"10px 24px", fontSize:14, fontWeight:800,
+                      cursor: starting2 ? "default" : "pointer",
+                      display:"flex", alignItems:"center", gap:8,
+                      boxShadow: starting2 ? "none" : "0 4px 14px rgba(16,185,129,0.35)",
+                      transition:"all 0.2s",
+                    }}>
+                    {starting2
+                      ? <><span>⚙️</span> Queuing…</>
+                      : <><span>▶</span> Start Batch Audit ({previewData.policies.filter(p => p.available).length} policies)</>
+                    }
+                  </button>
+                </div>
+              </div>
+ 
+              {batchError && (
+                <div style={{ padding:"10px 14px", background:"#FEE2E2", borderRadius:8,
+                  border:`1px solid #FECACA`, fontSize:13, color:"#991B1B" }}>
+                  ✗ {batchError}
+                </div>
+              )}
+ 
+              {/* KPI chips */}
+              <div style={{ display:"flex", gap:12 }}>
+                {[
+                  { label:"Available",    value: previewData.policies.filter(p => p.available).length,  color:C.green  },
+                  { label:"Unavailable",  value: previewData.policies.filter(p => !p.available).length, color:C.red    },
+                  { label:"States",       value: new Set(previewData.policies.map(p => p.state_code).filter(Boolean)).size, color:C.accent },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background:C.bg, borderRadius:10,
+                    padding:"10px 18px", border:`1px solid ${C.border}`, textAlign:"center" }}>
+                    <div style={{ fontSize:20, fontWeight:800, color }}>{value}</div>
+                    <div style={{ fontSize:11, color:C.muted, fontWeight:600 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+ 
+              {/* Policy detail table */}
+              <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+                {/* Table header */}
+                <div style={{ display:"grid",
+                  gridTemplateColumns:"1.6fr 2fr 1fr 1fr 0.8fr 1.2fr 1fr 0.7fr",
+                  background:"#F8FAFD", borderBottom:`1px solid ${C.border}`,
+                  padding:"10px 16px", gap:8 }}>
+                  {["Policy Number","Insured Name","Eff. Date","Exp. Date","State","Class Codes","Est Premium","Freq"].map(h => (
+                    <div key={h} style={{ fontSize:10, fontWeight:700, color:C.muted,
+                      textTransform:"uppercase", letterSpacing:0.7 }}>{h}</div>
+                  ))}
+                </div>
+ 
+                {/* Table rows */}
+                <div style={{ maxHeight:380, overflowY:"auto" }}>
+                  {previewData.policies.map((p, i) => (
+                    <div key={p.policy_number}
+                      style={{
+                        display:"grid",
+                        gridTemplateColumns:"1.6fr 2fr 1fr 1fr 0.8fr 1.2fr 1fr 0.7fr",
+                        padding:"11px 16px", gap:8, alignItems:"center",
+                        borderBottom:`1px solid ${C.border}`,
+                        background: !p.available ? "#FFF7F7" : i % 2 === 0 ? "#fff" : C.bg,
+                        transition:"background 0.12s",
+                      }}
+                      onMouseEnter={e => p.available && (e.currentTarget.style.background = "#EEF2FF")}
+                      onMouseLeave={e => (e.currentTarget.style.background = !p.available ? "#FFF7F7" : i % 2 === 0 ? "#fff" : C.bg)}
+                    >
+                      {/* Policy Number */}
+                      <div style={{ fontSize:13, fontWeight:700,
+                        color: p.available ? C.accent : C.muted,
+                        display:"flex", alignItems:"center", gap:6 }}>
+                        {!p.available && <span title="Not found in Mock API" style={{ color:C.red }}>⚠</span>}
+                        {p.policy_number}
+                      </div>
+ 
+                      {/* Insured Name */}
+                      <div style={{ fontSize:12, color:C.text,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {p.insured_name || "—"}
+                      </div>
+ 
+                      {/* Effective Date */}
+                      <div style={{ fontSize:12, color:C.muted }}>{p.effective_date || "—"}</div>
+ 
+                      {/* Expiration Date */}
+                      <div style={{ fontSize:12, color:C.muted }}>{p.expiration_date || "—"}</div>
+ 
+                      {/* State */}
+                      <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{p.state_code || "—"}</div>
+ 
+                      {/* Class Codes */}
+                      <div style={{ fontSize:11, color:C.muted,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {p.class_codes || "—"}
+                      </div>
+ 
+                      {/* Est Premium */}
+                      <div style={{ fontSize:12, fontWeight:600, color:C.text }}>
+                        {p.est_premium ? money(p.est_premium) : "—"}
+                      </div>
+ 
+                      {/* Payroll Frequency */}
+                      <div style={{ fontSize:11, color:C.muted }}>{p.payroll_frequency || "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+ 
+              {/* Preview errors (404 policies) */}
+              {previewData.errors?.length > 0 && (
+                <div style={{ padding:"12px 16px", background:"#FEF3C7", borderRadius:10,
+                  border:`1px solid ${C.amber}`, fontSize:12, color:"#92400E" }}>
+                  ⚠️ <strong>{previewData.errors.length} policy(ies) unavailable:</strong>
+                  <ul style={{ margin:"4px 0 0 16px", padding:0 }}>
+                    {previewData.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
  
-          {/* CTA or result */}
-          {!batchResult ? (
-            <button
-              disabled={fetchingAPI}
-              onClick={handleFetchFromAPI}
-              style={{ background:fetchingAPI ? C.border : `linear-gradient(135deg, ${C.accent}, ${C.teal})`,
-                color:"#fff", border:"none", borderRadius:10, padding:"13px 32px",
-                fontSize:15, fontWeight:800, cursor:fetchingAPI ? "default" : "pointer",
-                display:"flex", alignItems:"center", gap:10, transition:"all 0.2s",
-                opacity:fetchingAPI ? 0.7 : 1, boxShadow:fetchingAPI ? "none" : "0 4px 16px rgba(30,111,217,0.3)" }}>
-              {fetchingAPI
-                ? <><span style={{ fontSize:18 }}>⚙️</span> Fetching &amp; Queuing Policies…</>
-                : <><span style={{ fontSize:18 }}>🔌</span> Fetch All Policies from API</>
-              }
-            </button>
-          ) : (
+          {/* ── STEP 2 DONE: Batch queued ── */}
+          {batchResult && (
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
- 
-              {/* Success summary */}
               <div style={{ padding:"16px 20px", background:"#DCFCE7", borderRadius:12,
                 border:`1px solid #86EFAC`, display:"flex", alignItems:"center", gap:14 }}>
                 <span style={{ fontSize:28 }}>🚀</span>
@@ -5608,51 +6180,57 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
                 </div>
               </div>
  
-              {/* Policy case list */}
-              <div style={{ background:C.bg, borderRadius:12, border:`1px solid ${C.border}`,
-                overflow:"hidden" }}>
-                <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.border}`,
-                  fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase",
-                  letterSpacing:0.8, display:"flex", gap:0 }}>
-                  <span style={{ flex:2 }}>Policy Number</span>
-                  <span style={{ flex:1 }}>Case ID</span>
-                  <span style={{ flex:1 }}>Status</span>
-                </div>
-                <div style={{ maxHeight:260, overflowY:"auto" }}>
-                  {batchResult.cases.map((c, i) => (
-                    <div key={c.audit_case_id}
-                      style={{ display:"flex", padding:"11px 16px", alignItems:"center",
-                        borderBottom:`1px solid ${C.border}`,
-                        background: i % 2 === 0 ? "#fff" : C.bg }}>
-                      <span style={{ flex:2, fontSize:13, fontWeight:700, color:C.accent }}>
-                        {c.policy_number}
-                      </span>
-                      <span style={{ flex:1, fontSize:13, color:C.text }}>
-                        #{c.audit_case_id}
-                      </span>
-                      <span style={{ flex:1 }}>
-                        <StatusBadge status="pending" />
-                      </span>
-                    </div>
+              {/* Queued list with preview details */}
+              <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1.6fr 2fr 1fr 0.8fr 1fr",
+                  background:"#F8FAFD", borderBottom:`1px solid ${C.border}`,
+                  padding:"10px 16px", gap:8 }}>
+                  {["Policy Number","Insured Name","Case ID","State","Status"].map(h => (
+                    <div key={h} style={{ fontSize:10, fontWeight:700, color:C.muted,
+                      textTransform:"uppercase", letterSpacing:0.7 }}>{h}</div>
                   ))}
+                </div>
+                <div style={{ maxHeight:300, overflowY:"auto" }}>
+                  {batchResult.cases.map((c, i) => {
+                    const detail = previewData?.policies.find(p => p.policy_number === c.policy_number);
+                    return (
+                      <div key={c.audit_case_id}
+                        style={{ display:"grid", gridTemplateColumns:"1.6fr 2fr 1fr 0.8fr 1fr",
+                          padding:"11px 16px", gap:8, alignItems:"center",
+                          borderBottom:`1px solid ${C.border}`,
+                          background: i % 2 === 0 ? "#fff" : C.bg }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.accent }}>
+                          {c.policy_number}
+                        </div>
+                        <div style={{ fontSize:12, color:C.muted,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {detail?.insured_name || "—"}
+                        </div>
+                        <div style={{ fontSize:13, color:C.text }}>#{c.audit_case_id}</div>
+                        <div style={{ fontSize:12, fontWeight:700, color:C.text }}>
+                          {detail?.state_code || "—"}
+                        </div>
+                        <span><StatusBadge status="pending" /></span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
  
-              {/* API errors if any */}
               {batchResult.errors?.length > 0 && (
                 <div style={{ padding:"12px 16px", background:"#FEF3C7", borderRadius:10,
                   border:`1px solid ${C.amber}`, fontSize:12, color:"#92400E" }}>
-                  ⚠️ <strong>{batchResult.errors.length} policy(ies) failed to queue:</strong>
-                  <ul style={{ margin:"6px 0 0 16px", padding:0 }}>
+                  ⚠️ <strong>{batchResult.errors.length} failed to queue:</strong>
+                  <ul style={{ margin:"4px 0 0 16px", padding:0 }}>
                     {batchResult.errors.map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
                 </div>
               )}
  
-              {/* Reset */}
-              <button onClick={() => { setBatchResult(null); setBatchError(null); }}
-                style={{ alignSelf:"flex-start", background:C.bg, border:`1px solid ${C.border}`,
-                  borderRadius:8, padding:"7px 16px", fontSize:12, cursor:"pointer", color:C.muted }}>
+              <button onClick={handleReset}
+                style={{ alignSelf:"flex-start", background:C.bg,
+                  border:`1px solid ${C.border}`, borderRadius:8,
+                  padding:"7px 16px", fontSize:12, cursor:"pointer", color:C.muted }}>
                 ↺ Run another batch
               </button>
             </div>
@@ -5662,20 +6240,20 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
  
       {/* How it works */}
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:24 }}>
-        <SectionHeader title="How it works" sub={apiMode ? "API batch audit pipeline" : "The 3-step file audit pipeline"} />
+        <SectionHeader title="How it works"
+          sub={apiMode ? "Two-step API batch audit pipeline" : "The 3-step file audit pipeline"} />
         <div style={{ display:"flex", gap:16 }}>
           {(apiMode ? [
-            { n:"1", title:"Discover",  desc:"Backend calls Mock API GET /policies to retrieve all policy numbers in your account.", icon:"🔌" },
-            { n:"2", title:"Queue All", desc:"Each policy gets its own DB row and is pushed to the Redis Stream with data_source='api'.", icon:"⚡" },
-            { n:"3", title:"Process",   desc:"Worker picks up policies one by one. Each runs the full agent pipeline with HITL if high-risk.", icon:"🤖" },
+            { n:"1", title:"Preview",    desc:"Backend fetches all policies + configs from Mock API. Details shown in a table for review.", icon:"🔍" },
+            { n:"2", title:"Queue",      desc:"Confirmed policies are pushed to the Redis audit queue with configs pre-cached.", icon:"⚡" },
+            { n:"3", title:"Process",    desc:"Worker processes each policy — fetches payroll data only (config already cached). HITL when high-risk.", icon:"🤖" },
           ] : [
             { n:"1", title:"Upload",  desc:"Drop payroll Excel, policy XML, and audit metadata. Files are securely processed.", icon:"📂" },
             { n:"2", title:"Analyze", desc:"LangGraph multi-agent pipeline: Ingestion → Specialist agents → Premium calculation → AI narrative.", icon:"🤖" },
             { n:"3", title:"Review",  desc:"Auditor reviews variance report, HITL decisions, and AI explanation. Download final report.", icon:"📊" },
           ]).map(s => (
             <div key={s.n} style={{ flex:1, background:C.bg, borderRadius:12, padding:"18px 20px" }}>
-              <div style={{ width:32, height:32, borderRadius:"50%",
-                background:`linear-gradient(135deg, ${C.accent}, ${C.teal})`,
+              <div style={{ width:32, height:32, borderRadius:"50%", background:C.accent,
                 color:"#fff", display:"flex", alignItems:"center", justifyContent:"center",
                 fontWeight:800, fontSize:14, marginBottom:12 }}>{s.n}</div>
               <div style={{ fontSize:16 }}>{s.icon}</div>
