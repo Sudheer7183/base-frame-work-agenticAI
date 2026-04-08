@@ -17,9 +17,9 @@ from app.agent_langgraph.wc_state import WCAuditState
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_URL     = "https://api.anthropic.com/v1/messages"
-MODEL             = "claude-sonnet-4-20250514"
+GROQ_API_KEY = "*****"
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
+MODEL        = "openai/gpt-oss-120b"  # or "mixtral-8x7b-32768"
 
 
 async def explanation_agent(state: WCAuditState) -> WCAuditState:
@@ -73,40 +73,45 @@ class codes, and dates where available. Do NOT use bullet points — write in pa
 
     narrative = ""
 
-    if ANTHROPIC_API_KEY:
+    if GROQ_API_KEY:
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    ANTHROPIC_URL,
+                    GROQ_URL,
                     headers={
-                        "x-api-key":         ANTHROPIC_API_KEY,
-                        "anthropic-version": "2023-06-01",
-                        "content-type":      "application/json",
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
                     },
                     json={
-                        "model":      MODEL,
+                        "model": MODEL,
+                        "messages": [
+                            {"role": "system", "content": "You are a licensed Workers' Compensation Audit specialist."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": 0.3,
                         "max_tokens": 800,
-                        "messages":   [{"role": "user", "content": prompt}],
                     },
                 )
+
                 data = response.json()
-                narrative = data["content"][0]["text"].strip()
-                logger.info("[ExplanationAgent] LLM narrative generated successfully.")
+                narrative = data["choices"][0]["message"]["content"].strip()
 
         except Exception as exc:
             logger.error(f"[ExplanationAgent] LLM call failed: {exc}")
             narrative = _fallback_narrative(context)
     else:
-        logger.warning("[ExplanationAgent] No ANTHROPIC_API_KEY — using fallback narrative.")
+        logger.warning("[ExplanationAgent] No GROQ_API_KEY — using fallback narrative.")
         narrative = _fallback_narrative(context)
 
     state["ai_narrative"] = narrative
     state["agent_logs"].append({
         "agent":    "explanation_agent",
         "status":   "success",
-        "source":   "llm" if ANTHROPIC_API_KEY and narrative else "fallback",
+        "source":   "llm" if GROQ_API_KEY and narrative else "fallback",
         "timestamp": datetime.utcnow().isoformat(),
     })
+
+    print("state value of the narrative",narrative)
 
     return state
 

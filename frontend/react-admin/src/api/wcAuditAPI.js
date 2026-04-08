@@ -265,3 +265,18 @@ export async function updateAuditConfig(payload) {
     const { data } = await apiClient.get("/wc-audit/preview-api-policies");
     return data;  // { total, policies: [{policy_number, insured_name, ...}], errors }
   }
+
+
+/**
+ * Checks that a policy object returned by listMockAPIPolicies() has all
+ * the fields the pipeline needs. Returns { valid, missingFields }.
+ * @param {object} policy
+ * @returns {{ valid: boolean, missingFields: string[] }}
+ */
+export function validateMockAPIPolicy(policy) {
+  const REQUIRED = ["policy_number", "insured_name", "status", "files"];
+  const missingFields = REQUIRED.filter(
+    (f) => !policy[f] || (Array.isArray(policy[f]) && policy[f].length === 0)
+  );
+  return { valid: missingFields.length === 0, missingFields };
+}
