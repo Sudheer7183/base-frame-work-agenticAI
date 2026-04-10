@@ -17,7 +17,7 @@ from app.agent_langgraph.wc_state import WCAuditState
 
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = "*****"
+GROQ_API_KEY = "******"
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 MODEL        = "openai/gpt-oss-120b"  # or "mixtral-8x7b-32768"
 

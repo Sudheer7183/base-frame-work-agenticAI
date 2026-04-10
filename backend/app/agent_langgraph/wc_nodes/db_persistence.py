@@ -597,7 +597,7 @@ from app.agent_langgraph.wc_state import WCAuditState
 from app.models.wc_audit import (
     Policy, PolicyClassCode, PolicyOfficer,
     AuditCase, PayrollRecord, VarianceLine,
-    AgentFinding, HITLReview, AuditReport,
+    AgentFinding, HITLReview, AuditReport,MonthlyVariance
 )
 
 logger = logging.getLogger(__name__)
@@ -876,6 +876,7 @@ def persist_to_database(state: WCAuditState) -> dict:
                     submitted_count       = _safe(state.get("submitted_count"), 0),
                     total_earned_exposure = _safe(overall.get("earned_exposure"), 0),
                     total_earned_premium  = _safe(overall.get("earned_premium"), 0),
+                    total_cc_premium=_safe(overall.get("total_cc_premium",0)),
                     total_est_exposure    = _safe(overall.get("est_exposure"), 0),
                     total_est_ytd_premium = _safe(overall.get("est_ytd_premium"), 0),
                     total_variance        = _safe(overall.get("variance"), 0),
@@ -955,6 +956,40 @@ def persist_to_database(state: WCAuditState) -> dict:
                 errors.append(f"wc_payroll_records: {e}")
                 db.rollback()
 
+        # ══════════════════════════════════════════════════════════════════
+        # 6. Monthly Variance   — delete-and-replace
+        # ══════════════════════════════════════════════════════════════════
+        if case_db_id:
+            try:
+                # Delete existing
+                db.query(MonthlyVariance).filter(
+                    MonthlyVariance.audit_case_id == case_db_id
+                ).delete(synchronize_session=False)
+
+                monthly_trend = overall.get("monthly_trend", [])
+
+                for m in monthly_trend:
+                    db.add(MonthlyVariance(
+                        audit_case_id  = case_db_id,
+                        policy_number  = policy_number,
+                        month          = m.get("month"),
+                        earned_premium = m.get("earned"),
+                        est_premium    = m.get("est"),
+                        variance       = m.get("variance"),
+                        variance_pct   = (
+                            (m.get("variance") / m.get("est") * 100)
+                            if m.get("est") else 0
+                        ),
+                        created_at     = now
+                    ))
+
+                db.flush()
+                logger.info(f"[DBPersist] wc_monthly_variance: {len(monthly_trend)} rows")
+
+            except SQLAlchemyError as e:
+                logger.error(f"[DBPersist] wc_monthly_variance failed: {e}")
+                errors.append(f"wc_monthly_variance: {e}")
+                db.rollback()
         # ══════════════════════════════════════════════════════════════════
         # 6. wc_variance_lines  — delete-and-replace
         # ══════════════════════════════════════════════════════════════════

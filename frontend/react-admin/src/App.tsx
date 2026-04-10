@@ -393,7 +393,7 @@ import UserManagementTable from './components/UserManagementTable';
 import AgentBuilder from './components/AgentBuilder/AgentBuilder';
 import { Layout } from './components/Layout';
 import WCAuditApp from './pages/WCAudit';
-
+import CarrierPortalApp from './pages/WCAudit/carrier-portal-v2/CarrierPortalApp';
 function MainLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -403,6 +403,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     const path = location.pathname;
     if (path.includes('/users')) return 'users';
     if (path.includes('/agents')) return 'agents';
+    if (path.includes('/wc-audit/carrier-portal')) return 'carrier-portal'
     if (path.includes('/wc-audit')) return 'Workmencomp'
     return 'tenants';
   };
@@ -518,6 +519,28 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             <Bot size={18} />
             Workmencomp
           </button>
+          <button
+            onClick={() => handleTabChange('carrier-portal', '/admin/wc-audit/carrier-portal')}
+            style={{
+              padding: '16px 0',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'carrier-portal' ? '2px solid #3b82f6' : '2px solid transparent',
+              color: activeTab === 'carrier-portal' ? '#3b82f6' : '#6b7280',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            <Bot size={18} />
+            Carrier portal 
+          </button>
         </div>
       </div>
 
@@ -579,7 +602,8 @@ function AppContent() {
                   <Route path="agents/create" element={<AgentBuilder />} />
                   <Route path="agents/:id/edit" element={<AgentBuilder />} />
                   <Route index element={<Navigate to="tenants" replace />} />
-                  <Route path="/wc-audit/*" element={<WCAuditApp />} />
+                  <Route path="wc-audit/carrier-portal/*" element={<CarrierPortalApp />} />
+                  <Route path="wc-audit/*" element={<WCAuditApp />} />
                 </Routes>
                 {/* </Layout> */}
               </MainLayout>

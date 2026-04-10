@@ -6806,7 +6806,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
   const [error,        setError]        = useState(null);
  
   // ── API Batch state (two-step) ─────────────────────────────────────
-  const [apiMode,       setApiMode]       = useState(false);
+  const [apiMode,       setApiMode]       = useState(true);
   // Step 1 — Preview
   const [previewing,    setPreviewing]    = useState(false);
   const [previewData,   setPreviewData]   = useState(null);   // PolicyPreviewResponse
@@ -6949,7 +6949,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
       <div style={{ display:"flex", gap:0, background:C.bg, borderRadius:12,
         border:`1px solid ${C.border}`, overflow:"hidden", alignSelf:"flex-start" }}>
         {[
-          { key:false, label:"📂  File Upload",    desc:"Upload Excel & XML files" },
+          // { key:false, label:"📂  File Upload",    desc:"Upload Excel & XML files" },
           { key:true,  label:"🔌  Fetch from API", desc:"Pull all policies from Mock API" },
         ].map(tab => (
           <button key={String(tab.key)} onClick={() => { setApiMode(tab.key); handleReset(); }}
@@ -6968,7 +6968,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
       {/* ══════════════════════════════════════════════════════════════
           FILE UPLOAD TAB
       ══════════════════════════════════════════════════════════════ */}
-      {!apiMode && (
+      {/* {!apiMode && (
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:28 }}>
           <SectionHeader title="Run New Audit"
             sub="Upload three source files, enter policy number, then start the AI pipeline" />
@@ -7022,7 +7022,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
             )}
           </div>
         </div>
-      )}
+      )} */}
  
       {/* ══════════════════════════════════════════════════════════════
           API FETCH TAB — two-step: Preview → Start Batch
@@ -7072,7 +7072,7 @@ function DataUpload({ onAuditStarted, onBatchStarted }) {
                 }}>
                 {previewing
                   ? <><span style={{ fontSize:18 }}>⚙️</span> Loading Policy Details…</>
-                  : <><span style={{ fontSize:18 }}>🔍</span> Preview Policies from API</>
+                  : <><span style={{ fontSize:18 }}>🔍</span> Fetch Policies from API</>
                 }
               </button>
             </>
@@ -8024,7 +8024,7 @@ export default function WCAuditApp() {
               )}
             </div>
  
-            <button style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:10,
+            {/* <button style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:10,
               padding:"8px 16px", fontSize:13, cursor:"pointer", color:C.muted, fontWeight:600 }}>
               ⬇ Export
             </button>
@@ -8033,7 +8033,7 @@ export default function WCAuditApp() {
               style={{ background:C.accent, color:"#fff", border:"none", borderRadius:10,
                 padding:"8px 18px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
               + New Audit
-            </button>
+            </button> */}
  
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:36, height:36, borderRadius:"50%",

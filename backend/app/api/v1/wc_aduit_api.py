@@ -273,7 +273,16 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
     fe_status = _FE_STATUS_MAP.get(str(case.status or "").lower(), str(case.status or "pending"))
     if live_hitl_check and hitl_store.is_pending(case.id):
         fe_status = "hitl_pending"
-
+    
+    monthly_trend = [
+        {
+            "month": m.month,
+            "earned": float(m.earned_premium or 0),
+            "est": float(m.est_premium or 0),
+            "variance": float(m.variance or 0),
+        }
+        for m in (case.monthly_variances or [])
+    ]
     # ── Overall variance ──────────────────────────────────────────────
     overall_variance = {
         "earned_exposure": float(case.total_earned_exposure or 0),
@@ -282,6 +291,8 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
         "est_ytd_premium": float(case.total_est_ytd_premium or 0),
         "variance":        float(case.total_variance        or 0),
         "variance_pct":    float(case.total_variance_pct    or 0),
+        "total_cc_premium":float(case.total_cc_premium or 0),
+        "monthly_trend": monthly_trend
     }
 
     # ── Per-class-code variance lines ─────────────────────────────────
@@ -302,6 +313,7 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
         }
         for v in (case.variance_lines or [])
     ]
+
 
     # ── Agent logs — source priority ──────────────────────────────────
     #
@@ -1406,7 +1418,7 @@ async def start_batch_audit_from_api(
                 try:
                     r = requests.get(
                         f"{MOCK_API_BASE}/policies/{policy_number}/policy-config",
-                        timeout=20,
+                        # timeout=20,
                     )
                     if r.status_code == 404:
                         logger.warning(
