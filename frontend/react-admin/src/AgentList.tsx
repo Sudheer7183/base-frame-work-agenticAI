@@ -15,7 +15,7 @@ import {
 import { useAuth, apiClient } from './auth';
 import "./tenant-admin.css";
 
-const API_BASE = "http://localhost:8002/api/v1/agents";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL}/api/v1/agents`;
 
 interface Agent {
   id: number;

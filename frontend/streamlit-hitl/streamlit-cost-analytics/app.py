@@ -25,7 +25,7 @@ KEYCLOAK_CONFIG = {
     "client_secret": "your-client-secret-here-change-in-production"
 }
 
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:8002"
 
 # =============================================================================
 # Session State Initialization

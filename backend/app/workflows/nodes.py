@@ -1,111 +1,3 @@
-# """LangGraph workflow nodes"""
-
-# import logging
-# from typing import Dict, Any
-# from app.workflows.base import WorkflowState
-
-# logger = logging.getLogger(__name__)
-
-
-# async def input_validation_node(state: WorkflowState) -> WorkflowState:
-#     """
-#     Validate input data
-    
-#     Ensures all required fields are present
-#     """
-#     logger.info(f"Validating input for execution {state.execution_id}")
-    
-#     # Add validation logic here
-#     required_fields = state.config.get("required_fields", [])
-    
-#     for field in required_fields:
-#         if field not in state.input_data:
-#             state.error = f"Missing required field: {field}"
-#             return state
-    
-#     logger.info("Input validation passed")
-#     return state
-
-
-# async def llm_processing_node(state: WorkflowState) -> WorkflowState:
-#     """
-#     Process input with LLM
-    
-#     This is a placeholder - integrate with your LLM provider
-#     """
-#     logger.info(f"Processing with LLM for execution {state.execution_id}")
-    
-#     # Placeholder LLM processing
-#     # TODO: Integrate with Ollama/OpenAI/Anthropic
-    
-#     state.output_data = {
-#         "processed": True,
-#         "input": state.input_data,
-#         "result": "LLM processing placeholder - implement actual logic"
-#     }
-    
-#     return state
-
-
-# async def hitl_gate_node(state: WorkflowState) -> WorkflowState:
-#     """
-#     HITL gate - determines if human review is needed
-    
-#     Configure via agent config: {"hitl": {"enabled": true, "threshold": 0.8}}
-#     """
-#     logger.info(f"Checking HITL requirements for execution {state.execution_id}")
-    
-#     hitl_config = state.config.get("hitl", {})
-    
-#     if not hitl_config.get("enabled", False):
-#         logger.info("HITL not enabled for this agent")
-#         return state
-    
-#     # Check if HITL is required based on confidence or other criteria
-#     confidence = state.output_data.get("confidence", 1.0) if state.output_data else 1.0
-#     threshold = hitl_config.get("threshold", 0.8)
-    
-#     if confidence < threshold:
-#         logger.info(f"HITL required: confidence {confidence} < threshold {threshold}")
-#         state.requires_hitl = True
-#     else:
-#         logger.info(f"HITL not required: confidence {confidence} >= threshold {threshold}")
-    
-#     return state
-
-
-# async def output_formatting_node(state: WorkflowState) -> WorkflowState:
-#     """
-#     Format output data
-    
-#     Ensures output is in the expected format
-#     """
-#     logger.info(f"Formatting output for execution {state.execution_id}")
-    
-#     if state.output_data:
-#         # Add formatting logic here
-#         state.output_data["formatted"] = True
-#         state.output_data["execution_id"] = state.execution_id
-    
-#     return state
-
-
-# async def error_handling_node(state: WorkflowState) -> WorkflowState:
-#     """
-#     Handle errors in the workflow
-    
-#     Logs errors and formats error responses
-#     """
-#     if state.error:
-#         logger.error(f"Error in execution {state.execution_id}: {state.error}")
-        
-#         state.output_data = {
-#             "error": True,
-#             "message": state.error,
-#             "execution_id": state.execution_id
-#         }
-    
-#     return state
 
 """
 Enhanced workflow nodes with proper LLM integration
@@ -120,14 +12,36 @@ from app.workflows.base import WorkflowState
 logger = logging.getLogger(__name__)
 
 
-class LLMProvider:
-    """Factory for LLM providers"""
+# class LLMProvider:
+#     """Factory for LLM providers"""
     
+#     @staticmethod
+#     def get_provider(config: Dict[str, Any]):
+#         """Get appropriate LLM provider based on config"""
+#         provider_type = config.get("provider", "ollama").lower()
+        
+#         if provider_type == "openai":
+#             return OpenAIProvider(config)
+#         elif provider_type == "anthropic":
+#             return AnthropicProvider(config)
+#         else:
+#             return OllamaProvider(config)
+
+
+class LLMProvider:
     @staticmethod
     def get_provider(config: Dict[str, Any]):
-        """Get appropriate LLM provider based on config"""
-        provider_type = config.get("provider", "ollama").lower()
-        
+        from app.core.config import settings
+
+        # Read from config → then settings → then hard default
+        # Use `or` chain so None/empty string both fall through
+        provider_type = (
+            config.get("provider")
+            or config.get("llm_provider")
+            or getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            or "openai"
+        ).lower()
+
         if provider_type == "openai":
             return OpenAIProvider(config)
         elif provider_type == "anthropic":
@@ -186,62 +100,122 @@ class OllamaProvider:
             raise
 
 
-class OpenAIProvider:
-    """OpenAI LLM provider"""
+# class OpenAIProvider:
+#     """OpenAI LLM provider"""
     
+#     def __init__(self, config: Dict[str, Any]):
+#         from app.core.config import settings
+        
+#         self.api_key = config.get("api_key") or getattr(settings, "OPENAI_API_KEY", None)
+#         if not self.api_key:
+#             raise ValueError("OpenAI API key not configured")
+        
+#         self.model = config.get("model", "gpt-4")
+#         self.temperature = config.get("temperature", 0.7)
+#         self.max_tokens = config.get("max_tokens", 2000)
+    
+#     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
+#         """Generate response from OpenAI"""
+#         import httpx
+        
+#         messages = []
+#         if system_prompt:
+#             messages.append({"role": "system", "content": system_prompt})
+#         messages.append({"role": "user", "content": prompt})
+        
+#         try:
+#             async with httpx.AsyncClient(timeout=120.0) as client:
+#                 response = await client.post(
+#                     "https://api.openai.com/v1/chat/completions",
+#                     headers={
+#                         "Authorization": f"Bearer {self.api_key}",
+#                         "Content-Type": "application/json"
+#                     },
+#                     json={
+#                         "model": self.model,
+#                         "messages": messages,
+#                         "temperature": self.temperature,
+#                         "max_tokens": self.max_tokens
+#                     }
+#                 )
+                
+#                 if response.status_code == 200:
+#                     result = response.json()
+#                     return {
+#                         "content": result["choices"][0]["message"]["content"],
+#                         "model": self.model,
+#                         "provider": "openai",
+#                         "success": True,
+#                         "usage": result.get("usage", {})
+#                     }
+#                 else:
+#                     logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
+#                     raise Exception(f"OpenAI API error: {response.status_code}")
+                    
+#         except Exception as e:
+#             logger.error(f"OpenAI error: {e}")
+#             raise
+
+class OpenAIProvider:
     def __init__(self, config: Dict[str, Any]):
         from app.core.config import settings
-        
-        self.api_key = config.get("api_key") or getattr(settings, "OPENAI_API_KEY", None)
+
+        self.api_key = (
+            config.get("api_key")
+            or getattr(settings, "OPENAI_API_KEY", None)
+        )
         if not self.api_key:
-            raise ValueError("OpenAI API key not configured")
-        
-        self.model = config.get("model", "gpt-4")
+            raise ValueError("OPENAI_API_KEY not configured")
+
+        # Now reads from settings — picks up your GROQ values
+        self.model = (
+            config.get("model")
+            or getattr(settings, "OPENAI_MODEL", "gpt-4")
+        )
+        self.base_url = (
+            config.get("base_url")
+            or getattr(settings, "OPENAI_BASE_URL", "https://api.openai.com/v1")
+        ).rstrip("/")
+
         self.temperature = config.get("temperature", 0.7)
-        self.max_tokens = config.get("max_tokens", 2000)
-    
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
-        """Generate response from OpenAI"""
+        self.max_tokens  = config.get("max_tokens", 2000)
+
+    async def generate(self, prompt: str, system_prompt=None) -> Dict[str, Any]:
         import httpx
-        
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "temperature": self.temperature,
-                        "max_tokens": self.max_tokens
-                    }
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return {
-                        "content": result["choices"][0]["message"]["content"],
-                        "model": self.model,
-                        "provider": "openai",
-                        "success": True,
-                        "usage": result.get("usage", {})
-                    }
-                else:
-                    logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
-                    raise Exception(f"OpenAI API error: {response.status_code}")
-                    
-        except Exception as e:
-            logger.error(f"OpenAI error: {e}")
-            raise
 
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",  # ← now hits GROQ URL
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type":  "application/json",
+                },
+                json={
+                    "model":       self.model,         # ← now uses openai/gpt-oss-120b
+                    "messages":    messages,
+                    "temperature": self.temperature,
+                    "max_tokens":  self.max_tokens,
+                },
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "content":  data["choices"][0]["message"]["content"],
+                "model":    self.model,
+                "provider": "openai",
+                "success":  True,
+                "usage":    data.get("usage", {}),
+            }
+
+        raise Exception(
+            f"OpenAI-compatible API error: {response.status_code} — {response.text}"
+        )
 
 class AnthropicProvider:
     """Anthropic Claude provider"""

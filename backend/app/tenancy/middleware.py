@@ -8,7 +8,7 @@ from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 from .resolver import TenantResolver
-from .context import clear_tenant
+from .context import clear_tenant, set_tenant
 from .exceptions import TenantError, TenantNotFoundError, TenantInactiveError
 from .db import get_session
 
@@ -81,7 +81,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             
             # Resolve tenant
             tenant = resolver.resolve(request, jwt_payload)
-            
+            set_tenant(tenant.schema_name, tenant.slug)
             # Store tenant in request state for later access
             request.state.tenant = tenant
             

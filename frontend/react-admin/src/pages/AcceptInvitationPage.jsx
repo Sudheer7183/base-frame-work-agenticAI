@@ -103,9 +103,9 @@ const AcceptInvitationPage = () => {
   const handleSsoLogin = (provider) => {
     try {
       // ✅ FIX 2: Use correct Keycloak configuration
-      const keycloakUrl = 'http://localhost:8080';
-      const realm = 'agentic';
-      const clientId = 'agentic-frontend';  // ← FIXED: Use frontend client
+      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL;
+      const realm = import.meta.env.VITE_KEYCLOAK_REALM;
+      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;  // ← FIXED: Use frontend client
       const redirectUri = `${window.location.origin}/auth/callback`;
       
       // ✅ FIX 3: Properly encode state with invitation token

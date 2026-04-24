@@ -644,6 +644,26 @@ logger = logging.getLogger(__name__)
 #         "agent_logs": [log_entry],
 #     }
 
+def _norm_cc(raw) -> str:
+    """
+    Normalize a class code to a plain integer string so comparisons
+    between xml_records and excel_records always match regardless of
+    the format each side was stored in.
+ 
+    Handles every format seen in the wild:
+      '42.0'     → '42'   (float string from payroll **row passthrough)
+      '0042'     → '42'   (_normalize_xml_record split()[0] keeps leading zero)
+      '0042 100' → '42'   (raw audit report cell with suffix)
+      '42'       → '42'   (already canonical)
+      '8810'     → '8810' (4-digit, no leading zero — unchanged)
+      '8810 19'  → '8810' (4-digit with suffix)
+      '9050 100' → '9050'
+    """
+    try:
+        return str(int(float(str(raw).strip().split()[0])))
+    except Exception:
+        return str(raw).strip().split()[0].lstrip("0") or "0"
+        
 def calculate_variance(state: WCAuditState) -> dict:
     """
     Core deterministic variance calculation node.
@@ -709,7 +729,8 @@ def calculate_variance(state: WCAuditState) -> dict:
         class_code    = str(xml_rec.get("classCode",    "")).strip()
         state_code    = str(xml_rec.get("StateCode",    "")).strip()
         expected_subs = float(xml_rec.get("expected_payroll_submissions", 1) or 1)
- 
+        print("class code details",policy_num,class_code,state_code)
+        print("excel recodrs",excel_records)
         # ── Match payroll rows ────────────────────────────────────────────────
         matching = [
             r for r in excel_records
@@ -717,16 +738,16 @@ def calculate_variance(state: WCAuditState) -> dict:
             and str(r.get("class_code",   "")).strip() == class_code
             and str(r.get("state_code",   "")).strip() == state_code
         ]
- 
+        print("matching data", matching)
         earned_exposure = sum(float(r.get("exposure",       0) or 0) for r in matching)
         earned_premium  = sum(float(r.get("earned_premium", 0) or 0) for r in matching)
- 
+    
         xml_exposure    = float(xml_rec.get("Exposure",     0) or 0)
         xml_est_cc_prem = float(xml_rec.get("EstCCpremium", 0) or 0)
  
         est_exposure    = (xml_exposure    / expected_subs) * submitted_count
         est_ytd_premium = (xml_est_cc_prem / expected_subs) * submitted_count
- 
+        print("full data gathered",earned_exposure,earned_premium,xml_exposure,xml_est_cc_prem )
         variance     = earned_premium - est_ytd_premium
         variance_pct = (variance / est_ytd_premium * 100) if est_ytd_premium != 0 else 0.0
  
@@ -773,13 +794,15 @@ def calculate_variance(state: WCAuditState) -> dict:
             distinct_runs = len(data["run_dates"])
  
             # ── APPROACH 2: est = actual monthly exposure × average net rate ──
-            if row_count > 0 and data["net_rate_sum"] > 0:
-                avg_net_rate      = data["net_rate_sum"] / row_count
-                est_premium_month = data["exposure"] * avg_net_rate
-            else:
-                # Fallback — distinct payroll run count × per-run est
-                avg_net_rate      = 0.0
-                est_premium_month = est_per_run * distinct_runs
+            # if row_count > 0 and data["net_rate_sum"] > 0:
+            #     avg_net_rate      = data["net_rate_sum"] / row_count
+            #     est_premium_month = data["exposure"] * avg_net_rate
+            # else:
+            #     # Fallback — distinct payroll run count × per-run est
+            #     avg_net_rate      = 0.0
+            #     est_premium_month = est_per_run * distinct_runs
+
+            est_premium_month = (xml_est_cc_prem / expected_subs) * distinct_runs
  
             earned_premium_month = data["earned_premium"]
             variance_m           = earned_premium_month - est_premium_month
@@ -792,7 +815,7 @@ def calculate_variance(state: WCAuditState) -> dict:
                 "earned_premium": round(earned_premium_month, 2),
                 "est_premium":    round(est_premium_month,    2),
                 "exposure":       round(data["exposure"],     2),
-                "avg_rate":       round(avg_net_rate,         5),
+                # "avg_rate":       round(avg_net_rate,         5),
                 "distinct_runs":  distinct_runs,
                 "variance":       round(variance_m,           2),
                 "variance_pct":   round(variance_pct_m,       2),

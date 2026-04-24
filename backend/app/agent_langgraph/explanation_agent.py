@@ -1,65 +1,59 @@
+
 """
 Explanation Agent (LLM-Assisted)
-Generates plain-English audit narratives using Claude (Anthropic API).
-Called AFTER all deterministic calculations are complete.
+Generates plain-English audit narratives.
 
-This is the ONLY agent that uses an LLM — keeping the system
-regulator-safe by separating AI from arithmetic.
+Uses the platform's existing LLMProvider factory (backend/app/workflows/nodes.py)
+so provider selection, API keys, and model config all come from settings — 
+no hardcoding anywhere in this file.
 """
 import json
 import logging
-import os
 from datetime import datetime
-
-import httpx
+from typing import Any
 
 from app.agent_langgraph.wc_state import WCAuditState
-
+from app.workflows.nodes import LLMProvider  # ← platform's existing factory
+from app.services.token_parser import TokenParser
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = "******"
-GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODEL        = "openai/gpt-oss-120b"  # or "mixtral-8x7b-32768"
+SYSTEM_PROMPT = "You are a licensed Workers' Compensation Audit specialist."
 
 
-async def explanation_agent(state: WCAuditState) -> WCAuditState:
+async def explanation_agent(state: WCAuditState) -> dict:
     """
-    Generate an auditor-ready narrative using Claude.
-    Falls back to a deterministic template if the API is unavailable.
+    Generate an auditor-ready narrative using the platform LLM provider.
+    Returns a partial dict — LangGraph merges it into the master state.
     """
-    overall         = state.get("overall_variance", {})
-    cc_variances    = state.get("class_code_variance", [])
-    officer_issues  = state.get("officer_findings",    [])
-    freq_issues     = state.get("frequency_findings",  [])
-    cc_issues       = state.get("class_code_findings", [])
-    risk_level      = state.get("risk_level",          "low")
-    recommendation  = state.get("recommendation",      "no_action")
-    policy_cfg      = state.get("policy_config",       {})
+    overall        = state.get("overall_variance", {})
+    cc_variances   = state.get("class_code_variance", [])
+    officer_issues = state.get("officer_findings", [])
+    freq_issues    = state.get("frequency_findings", [])
+    cc_issues      = state.get("class_code_findings", [])
+    risk_level     = state.get("risk_level", "low")
+    recommendation = state.get("recommendation", "no_action")
+    policy_cfg     = state.get("policy_config", {})
 
-    # Build a structured prompt context
     context = {
-        "policy_number":    state.get("policy_number"),
-        "insured_name":     policy_cfg.get("insured_name", "Unknown"),
-        "effective_date":   policy_cfg.get("effective_date"),
-        "expiration_date":  policy_cfg.get("expiration_date"),
-        "first_check_date": state.get("first_check_date"),
-        "last_check_date":  state.get("last_check_date"),
-        "submitted_count":  state.get("submitted_count"),
+        "policy_number":        state.get("policy_number"),
+        "insured_name":         policy_cfg.get("insured_name", "Unknown"),
+        "effective_date":       policy_cfg.get("effective_date"),
+        "expiration_date":      policy_cfg.get("expiration_date"),
+        "first_check_date":     state.get("first_check_date"),
+        "last_check_date":      state.get("last_check_date"),
+        "submitted_count":      state.get("submitted_count"),
         "expected_submissions": round(float(state.get("expected_submissions", 0)), 1),
-        "overall_variance": overall,
-        "flagged_class_codes": [
-            cv for cv in cc_variances if cv.get("is_flagged")
-        ],
-        "officer_issues":   officer_issues,
-        "frequency_issues": freq_issues,
-        "class_code_issues": [i for i in cc_issues if i.get("issue") == "invalid_class_code"],
-        "risk_level":       risk_level,
-        "recommendation":   recommendation,
+        "overall_variance":     overall,
+        "flagged_class_codes":  [cv for cv in cc_variances if cv.get("is_flagged")],
+        "officer_issues":       officer_issues,
+        "frequency_issues":     freq_issues,
+        "class_code_issues":    [i for i in cc_issues if i.get("issue") == "invalid_class_code"],
+        "risk_level":           risk_level,
+        "recommendation":       recommendation,
     }
 
-    prompt = f"""You are a licensed Workers' Compensation Audit specialist.
-Based on the following audit findings, write a professional audit narrative (2-4 paragraphs)
-that explains:
+    prompt = f"""Based on the following audit findings, write a professional audit narrative
+(2-4 paragraphs) that explains:
 1. What was audited and the policy period
 2. What variances or issues were found (use specific numbers)
 3. The root cause(s) of the variance
@@ -68,56 +62,49 @@ that explains:
 Audit data:
 {json.dumps(context, indent=2, default=str)}
 
-Write the narrative in plain English for an insurance auditor. Be specific about dollar amounts,
-class codes, and dates where available. Do NOT use bullet points — write in paragraphs only."""
+Write in plain English for an insurance auditor. Be specific about dollar amounts,
+class codes, and dates where available. Write in paragraphs only — no bullet points."""
 
     narrative = ""
+    source    = "fallback"
 
-    if GROQ_API_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    GROQ_URL,
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": MODEL,
-                        "messages": [
-                            {"role": "system", "content": "You are a licensed Workers' Compensation Audit specialist."},
-                            {"role": "user", "content": prompt},
-                        ],
-                        "temperature": 0.3,
-                        "max_tokens": 800,
-                    },
-                )
+    try:
+        # ── Uses the platform's existing LLMProvider factory ──────────────
+        # Provider, model, and API key all come from settings / environment.
+        # To switch providers: set LLM_DEFAULT_PROVIDER=openai|anthropic|ollama
+        # To use GROQ: set LLM_DEFAULT_PROVIDER=openai, OPENAI_API_KEY=gsk_...
+        #              and override OPENAI_BASE_URL=https://api.groq.com/openai/v1
+        provider = LLMProvider.get_provider({
+            "provider":    state.get("llm_provider"),   # optional per-audit override
+            "temperature": 0.3,
+            "max_tokens":  800,
+        })
+        print("I am using LLM provider values",provider)
+        result    = await provider.generate(prompt, system_prompt=SYSTEM_PROMPT)
+        narrative = result["content"]
+        source    = result.get("provider", "llm")
+        logger.info("[ExplanationAgent] Narrative generated via %s", source)
 
-                data = response.json()
-                narrative = data["choices"][0]["message"]["content"].strip()
-
-        except Exception as exc:
-            logger.error(f"[ExplanationAgent] LLM call failed: {exc}")
-            narrative = _fallback_narrative(context)
-    else:
-        logger.warning("[ExplanationAgent] No GROQ_API_KEY — using fallback narrative.")
+    except Exception as exc:
+        logger.error("[ExplanationAgent] LLM call failed: %s — using fallback", exc)
         narrative = _fallback_narrative(context)
+        source    = "fallback"
 
-    state["ai_narrative"] = narrative
-    state["agent_logs"].append({
-        "agent":    "explanation_agent",
-        "status":   "success",
-        "source":   "llm" if GROQ_API_KEY and narrative else "fallback",
-        "timestamp": datetime.utcnow().isoformat(),
-    })
-
-    print("state value of the narrative",narrative)
-
-    return state
+    # ── Return partial dict — LangGraph merges into master state ─────────
+    return {
+        "ai_narrative": narrative,
+        "agent_logs": state.get("agent_logs", []) + [{
+            "agent":     "explanation_agent",
+            "status":    "success",
+            "source":    source,
+            "timestamp": datetime.utcnow().isoformat(),
+        }],
+    }
 
 
 def _fallback_narrative(ctx: dict) -> str:
-    """Deterministic fallback narrative when LLM is unavailable."""
+    """Deterministic fallback when LLM is unavailable."""
+    print("I have fall backed to the backup function")
     overall  = ctx.get("overall_variance", {})
     variance = float(overall.get("variance", 0))
     var_pct  = float(overall.get("variance_pct", 0))
@@ -157,7 +144,7 @@ def _fallback_narrative(ctx: dict) -> str:
         f"The audit calculation produced an overall premium variance of "
         f"${variance:+,.2f} ({var_pct:+.2f}%), indicating {rec_text}."
         f"{officer_note}{freq_note}\n\n"
-        f"Risk level for this audit has been assessed as {ctx.get('risk_level', 'unknown').upper()}. "
-        f"All findings have been documented in the variance breakdown report and are available "
-        f"for auditor review and Manual approval."
+        f"Risk level for this audit has been assessed as "
+        f"{ctx.get('risk_level', 'unknown').upper()}. All findings have been documented "
+        f"in the variance breakdown report and are available for auditor review."
     )

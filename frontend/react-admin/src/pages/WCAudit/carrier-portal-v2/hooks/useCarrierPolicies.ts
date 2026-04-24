@@ -7,6 +7,7 @@ import type {
   BookSummary, DistributionEntry, StateRiskEntry, TargetVariance,
   CarrierPortalData,
 } from '../types'
+import { getSystemDate } from '../../../../../systemDate'
 
 const THRESHOLD = 30
 
@@ -26,14 +27,56 @@ const RISK_MAP: Record<string, RiskLevel> = {
   unknown: 'Low',
 }
 
+
+
+// function derivePolicyStatus(c: any): PolicyStatus {
+//   // Expired check (keep first priority)
+//   if (c.expiration_date) {
+//     try {
+//       const d = new Date(c.expiration_date)
+//       if (!isNaN(d.getTime()) && d < new Date()) return 'Expired'
+//     } catch { /* ignore */ }
+//   }
+
+//   const expected = Number(c.expected_submissions ?? 0)
+//   const submitted = Number(c.submitted_count ?? 0)
+
+//   // Pending Cancel logic
+//   if (
+//     c.recommendation === 'refund' ||
+//     submitted > expected
+//   ) {
+//     return 'Pending Cancel'
+//   }
+
+//   return 'Active'
+// }
+
+function stripTime(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
 function derivePolicyStatus(c: any): PolicyStatus {
+  const systemDate = stripTime(getSystemDate())
+
+  // Expired check
   if (c.expiration_date) {
     try {
-      const d = new Date(c.expiration_date)
-      if (!isNaN(d.getTime()) && d < new Date()) return 'Expired'
+      const d = stripTime(new Date(c.expiration_date))
+      if (!isNaN(d.getTime()) && d < systemDate) return 'Expired'
     } catch { /* ignore */ }
   }
-  if (c.recommendation === 'refund') return 'Pending Cancel'
+
+  const expected = Number(c.expected_submissions ?? 0)
+  const submitted = Number(c.submitted_count ?? 0)
+
+  if (
+    c.recommendation === 'refund' ||
+    submitted > expected
+  ) {
+    return 'Pending Cancel'
+  }
+
   return 'Active'
 }
 
@@ -74,6 +117,9 @@ function transformCase(c: any): Policy {
     }
   })
 
+  const firstStateCode = c.class_code_variance?.[0]?.StateCode 
+  ?? c.class_code_variance?.[0]?.state_code 
+  ?? ''
   const Statecodes:ClassCode[] = (c.class_code_variance ?? []).map((cc:any)=>{
     const state_code = String(cc.StateCode ?? "")
 
@@ -86,7 +132,7 @@ function transformCase(c: any): Policy {
   return {
     policyNumber:        String(c.policy_number ?? c.audit_case_id ?? ''),
     insuredName:         String(c.insured_name  ?? ''),
-    state:               String(Statecodes),
+    state:               String(firstStateCode),
     effectiveDate:       String(c.effective_date  ?? ''),
     expirationDate:      String(c.expiration_date ?? ''),
     policyStatus:        derivePolicyStatus(c),

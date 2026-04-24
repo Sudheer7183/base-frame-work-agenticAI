@@ -30,7 +30,7 @@ export const TenantsPage: React.FC = () => {
       setLoading(true)
       
       // Send locale to backend
-      const response = await fetch('http://localhost:8002/api/tenants', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`, {
         headers: {
           'Accept-Language': i18n.language,
         }
@@ -50,7 +50,7 @@ export const TenantsPage: React.FC = () => {
     if (!name) return
     
     try {
-      const response = await fetch('http://localhost:8002/api/tenants', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tenants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
