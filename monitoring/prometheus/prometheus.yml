@@ -21,7 +21,7 @@ scrape_configs:
   # FastAPI application metrics
   - job_name: 'agentic-ai-api'
     static_configs:
-      - targets: ['172.25.175.88:8000']
+      - targets: ['172.25.175.88:8002']
     metrics_path: '/metrics'
     scrape_interval: 10s
 

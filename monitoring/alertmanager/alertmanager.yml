@@ -2,8 +2,8 @@ global:
   resolve_timeout: 5m
   # SMTP configuration for email alerts
   smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: 'alerts@agentic-ai.com'
-  smtp_auth_username: 'your-email@gmail.com'
+  smtp_from: 'psudheer791@gmail.com'
+  smtp_auth_username: 'psudheer791@gmail.com'
   smtp_auth_password: 'your-app-password'  # Use app-specific password
   smtp_require_tls: true
 
@@ -37,7 +37,7 @@ route:
 receivers:
   - name: 'default'
     email_configs:
-      - to: 'team@agentic-ai.com'
+      - to: 'psudheer791@gmail.com'
         headers:
           Subject: '[Agentic AI] {{ .GroupLabels.alertname }}'
         html: |
@@ -65,13 +65,13 @@ receivers:
     
     # Email for critical alerts
     email_configs:
-      - to: 'oncall@agentic-ai.com'
+      - to: 'psudheer791@gmail.com'
         headers:
           Subject: '🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}'
 
   - name: 'warning-alerts'
     email_configs:
-      - to: 'alerts@agentic-ai.com'
+      - to: 'psudheer791@gmail.com'
         headers:
           Subject: '⚠️  WARNING: {{ .GroupLabels.alertname }}'
 

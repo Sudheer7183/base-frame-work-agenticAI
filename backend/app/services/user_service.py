@@ -500,6 +500,7 @@ class UserService:
     # USER CREATION WITH KEYCLOAK (ENHANCED)
     # ========================================================================
     
+
     async def create_user(
         self,
         user_data: UserCreate,
@@ -602,10 +603,11 @@ class UserService:
         
         try:
             self.db.add(user)
-            self.db.commit()
-            self.db.refresh(user)
+            self.db.flush()
+            print("I am here and my tenant slug is ",tenant_slug,user)
+            # self.db.commit()
             
-            logger.info(f"✅ User created in database: {user.id}")
+            # logger.info(f"✅ User created in database: {user.id}")
             return user
             
         except IntegrityError as e:
@@ -616,6 +618,7 @@ class UserService:
             # (You might want to implement delete_user in Keycloak service)
             
             raise ConflictException("User creation failed due to duplicate data")
+    
     
     # ========================================================================
     # EXISTING USER CRUD METHODS (PRESERVED)

@@ -8,6 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.orm import Session
 
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+
 from .service import TenantService
 from .models import Tenant, TenantStatus
 from .dependencies import get_db
@@ -21,7 +26,9 @@ from app.core.realtime_translation import (
     translate_dict_fields,
     should_translate
 )
-
+from app.tenancy.db import get_session
+from app.services.user_service import UserService
+from app.schemas.user import UserCreate
 # ============================================================================
 # i18n imports (UPDATED)
 # ============================================================================
@@ -69,6 +76,11 @@ class TenantUpdate(BaseModel):
     max_users: Optional[int] = Field(None, gt=0)
     config: Optional[dict] = None
 
+class TenantWithAdminCreate(TenantCreate):
+    """Extends TenantCreate with admin user fields for one-shot tenant+user creation"""
+    username:  str = Field(..., description="Login username for the admin account")
+    full_name: str = Field(..., description="Display name for the admin account")
+    password:  str = Field(..., min_length=8, description="Password for the admin account")
 
 class TenantResponse(BaseModel):
     """Response model for tenant data (UPDATED with formatted fields)"""
@@ -118,24 +130,7 @@ def translate_status(status: str) -> str:
     return status_translations.get(status.lower(), status)
 
 
-# def format_tenant_response(tenant: Tenant) -> dict:
-#     """Format tenant data with i18n fields"""
-#     tenant_dict = tenant.to_dict()
-    
-#     # Add translated status
-#     tenant_dict['status_display'] = translate_status(tenant_dict['status'])
-    
-#     # Add formatted dates
-#     tenant_dict['created_at_formatted'] = format_datetime(
-#         tenant_dict['created_at'], 
-#         format='medium'
-#     )
-#     tenant_dict['updated_at_formatted'] = format_datetime(
-#         tenant_dict['updated_at'], 
-#         format='medium'
-#     )
-    
-#     return tenant_dict
+
 
 def format_tenant_response(tenant) -> dict:
     """Format tenant data with i18n fields"""
@@ -168,20 +163,34 @@ def format_tenant_response(tenant) -> dict:
 # API Endpoints (UPDATED with i18n)
 # ============================================================================
 
+
+
+
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
-def create_tenant(
-    tenant_data: TenantCreate,
-    db: Session = Depends(get_db),
-    current_admin: TokenData = Depends(get_super_admin_user)
+async def create_tenant(
+    tenant_data: TenantWithAdminCreate,
+    current_admin: TokenData = Depends(get_super_admin_user),
 ):
     """
-    Create a new tenant
-    
+    Create a new tenant AND its first admin user.
     Requires Super Admin privileges.
+ 
+    Why two sessions?
+    -----------------
+    TenantService.create_tenant() runs Alembic migrations as a subprocess.
+    Sharing one SQLAlchemy session across that boundary corrupts its state
+    and silently kills the process before the user can be created.
+    Closing db1 before opening db2 gives each step a clean connection,
+    exactly as the working CLI script does.
     """
-    service = TenantService(db)
-    
+ 
+    # ── STEP 1: Create Tenant ─────────────────────────────────────────────
+    db1 = get_session()
+    schema_name = None
+    response_data = {}
+ 
     try:
+        service = TenantService(db1)
         tenant = service.create_tenant(
             slug=tenant_data.slug,
             name=tenant_data.name,
@@ -189,30 +198,70 @@ def create_tenant(
             admin_email=tenant_data.admin_email,
             description=tenant_data.description,
             config=tenant_data.config,
-            max_users=tenant_data.max_users
+            max_users=tenant_data.max_users,
         )
-        
-        # Format response with i18n
-        response_data = format_tenant_response(tenant)
-        
-        # Add success message
-        response_data['message'] = _("Tenant '{name}' created successfully").format(
-            name=tenant_data.name
-        )
-        
-        return TenantResponse(**response_data)
-        
+ 
+        schema_name = str(tenant.schema_name)           # read before session closes
+        response_data = format_tenant_response(tenant)  # read before session closes
+        response_data["message"] = _(
+            "Tenant '{name}' created successfully"
+        ).format(name=tenant_data.name)
+ 
     except InvalidTenantError as e:
+        db1.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_("Invalid tenant data: {error}").format(error=str(e))
+            detail=_("Invalid tenant data: {error}").format(error=str(e)),
         )
     except TenantError as e:
+        db1.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_("Failed to create tenant: {error}").format(error=str(e))
+            detail=_("Failed to create tenant: {error}").format(error=str(e)),
         )
+    finally:
+        db1.close()   # CRITICAL: must close before opening db2
+ 
+    # ── STEP 2: Create Admin User ─────────────────────────────────────────
+    db2 = get_session()
+    try:
+        db2.execute(text(f'SET search_path TO "{schema_name}", public'))
+ 
+        user = await UserService(db2).create_user(
+            UserCreate(
+                email=tenant_data.admin_email,
+                username=tenant_data.username,
+                full_name=tenant_data.full_name,
+                password=tenant_data.password,
+                roles=["ADMIN"],
+                is_active=True,
+            ),
+            tenant_data.slug,
+        )
+        user_id = user.id   # store before commit
 
+        db2.commit()
+
+        response_data["admin_user_id"] = str(user_id)
+ 
+
+ 
+    except Exception as e:
+        db2.rollback()
+        # Tenant is already committed — surface a clear error so the caller
+        # knows the tenant exists and only the user needs to be created manually.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_(
+                "Tenant '{slug}' was created but admin user setup failed: {error}. "
+                "Please create the admin user manually."
+            ).format(slug=tenant_data.slug, error=str(e)),
+        )
+    finally:
+        db2.close()
+ 
+    return TenantResponse(**response_data)
+ 
 
 
 

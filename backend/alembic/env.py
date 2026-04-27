@@ -1,4 +1,3 @@
-
 from logging.config import fileConfig
 from sqlalchemy import pool, text, create_engine
 from alembic import context
@@ -97,7 +96,14 @@ def run_migrations_online() -> None:
     engine = create_engine(db_url, poolclass=pool.NullPool)
  
     # Check if this is a targeted single-schema call (from tenant_registration.py)
-    target_schema = config.get_main_option("target_schema") or None
+    # Support two ways to receive the target schema:
+    #   1. subprocess call:   alembic -x target_schema=<name> upgrade head
+    #   2. programmatic call: alembic_cfg.set_main_option("target_schema", name)
+    target_schema = (
+        context.get_x_argument(as_dictionary=True).get("target_schema")
+        or config.get_main_option("target_schema", None)
+        or None
+    )
  
     with engine.connect() as connection:
         if target_schema:

@@ -267,47 +267,107 @@ class TenantService:
             logger.exception("Full traceback:")
             raise TenantProvisionError(f"Schema creation failed: {e}")
     
+    # def _run_migrations(self, schema_name: str) -> None:
+    #     """
+    #     ✅ ACTUALLY RUN DATABASE MIGRATIONS FOR TENANT SCHEMA
+        
+    #     Integrates with Alembic to run migrations programmatically
+    #     """
+    #     validate_schema_name(schema_name)
+        
+    #     logger.info(f"Running migrations for schema: {schema_name}")
+        
+    #     try:
+    #         # Find alembic.ini
+    #         backend_dir = Path(__file__).parent.parent.parent
+    #         alembic_ini = backend_dir / "alembic.ini"
+            
+    #         if not alembic_ini.exists():
+    #             raise TenantProvisionError(f"alembic.ini not found at {alembic_ini}")
+            
+    #         # Create Alembic config
+    #         alembic_cfg = Config(str(alembic_ini))
+            
+    #         # Set the schema in the config
+    #         # This gets read by env.py via config.get_main_option("schema")
+    #         alembic_cfg.set_main_option("target_schema", schema_name)
+            
+    #         # Set script location
+    #         alembic_cfg.set_main_option(
+    #             "script_location", 
+    #             str(backend_dir / "alembic")
+    #         )
+            
+    #         # Run upgrade to head
+    #         logger.info(f"Running: alembic upgrade head for schema {schema_name}")
+    #         command.upgrade(alembic_cfg, "head")
+            
+    #         logger.info(f"✅ Migrations completed for schema: {schema_name}")
+            
+    #     except Exception as e:
+    #         logger.error(f"Migration failed for {schema_name}: {e}")
+    #         raise TenantProvisionError(f"Migration failed: {e}")
+    
     def _run_migrations(self, schema_name: str) -> None:
         """
-        ✅ ACTUALLY RUN DATABASE MIGRATIONS FOR TENANT SCHEMA
-        
-        Integrates with Alembic to run migrations programmatically
+        Run Alembic migrations for a tenant schema via subprocess.
+ 
+        WHY SUBPROCESS?
+        ---------------
+        Calling alembic.command.upgrade() inline shares the Python process
+        with the application's SQLAlchemy connection pool.  Alembic's
+        env.py creates its own NullPool engine that opens and closes
+        psycopg2 connections to the same host.  In certain SQLAlchemy /
+        psycopg2 versions this teardown silently corrupts the parent
+        session (self.db), causing the process to hang after migrations
+        complete without raising any catchable exception.
+ 
+        Running Alembic in a child subprocess gives it a completely
+        isolated OS process and connection pool.  The parent's self.db is
+        never touched, and any crash in Alembic only kills the child.
         """
+        import subprocess
+        import sys as _sys
+ 
         validate_schema_name(schema_name)
-        
+ 
         logger.info(f"Running migrations for schema: {schema_name}")
-        
+ 
         try:
-            # Find alembic.ini
             backend_dir = Path(__file__).parent.parent.parent
             alembic_ini = backend_dir / "alembic.ini"
-            
+ 
             if not alembic_ini.exists():
                 raise TenantProvisionError(f"alembic.ini not found at {alembic_ini}")
-            
-            # Create Alembic config
-            alembic_cfg = Config(str(alembic_ini))
-            
-            # Set the schema in the config
-            # This gets read by env.py via config.get_main_option("schema")
-            alembic_cfg.set_main_option("target_schema", schema_name)
-            
-            # Set script location
-            alembic_cfg.set_main_option(
-                "script_location", 
-                str(backend_dir / "alembic")
-            )
-            
-            # Run upgrade to head
-            logger.info(f"Running: alembic upgrade head for schema {schema_name}")
-            command.upgrade(alembic_cfg, "head")
-            
+ 
+            # Pass the target schema via Alembic -x so env.py reads it
+            # with context.get_x_argument(as_dictionary=True)["target_schema"].
+            cmd = [
+                _sys.executable, "-m", "alembic",
+                "-c", str(alembic_ini),
+                "-x", f"target_schema={schema_name}",
+                "upgrade", "head",
+            ]
+ 
+            logger.info(f"Running subprocess: alembic upgrade head for schema {schema_name}")
+ 
+            result = subprocess.run(cmd, cwd=str(backend_dir))
+ 
+            if result.returncode != 0:
+                raise TenantProvisionError(
+                    f"Alembic migration exited with code {result.returncode} "
+                    f"for schema '{schema_name}'"
+                )
+ 
             logger.info(f"✅ Migrations completed for schema: {schema_name}")
-            
+ 
+        except TenantProvisionError:
+            raise
         except Exception as e:
             logger.error(f"Migration failed for {schema_name}: {e}")
             raise TenantProvisionError(f"Migration failed: {e}")
     
+
     def _cleanup_failed_provision(self, schema_name: str) -> None:
         """Cleanup after failed provisioning"""
         logger.warning(f"Cleaning up failed provision: {schema_name}")
