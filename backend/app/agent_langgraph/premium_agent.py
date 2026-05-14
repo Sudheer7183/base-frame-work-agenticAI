@@ -178,49 +178,49 @@ def calculate_variance(state: WCAuditState) -> dict:
         })
 
         effective_date = xml_rec.get("EffectiveDate", "")
+        expiration_date  = xml_rec.get("ExpirationDate",  "")
 
         try:
-            eff_dt = datetime.strptime(
-                effective_date,
-                "%m/%d/%Y"
-            )
+            eff_dt = datetime.strptime(effective_date, "%m/%d/%Y")
 
-            system_date = os.getenv("BACKEND_SYSTEMD_DATE")
-            print("system date",system_date)
+            # ── System date override (for testing) ───────────────────────────────
+            # NOTE: also accept BACKEND_SYSTEM_DATE (correct spelling) alongside
+            # the old BACKEND_SYSTEMD_DATE so both work during the transition period
+            system_date = os.getenv("BACKEND_SYSTEM_DATE") or os.getenv("BACKEND_SYSTEMD_DATE")
             if system_date:
-                today=datetime.strptime(system_date, "%m/%d/%Y")
-
+                today = datetime.strptime(system_date, "%m/%d/%Y")
             else:
-                today=datetime.now()
+                today = datetime.now()
 
-            # Start from effective month
-            current = datetime(
-                eff_dt.year,
-                eff_dt.month,
-                1
-            )
+            # ── Expiration date ──────────────────────────────────────────────────
+            # Parse it once. If it fails or is missing, exp_dt stays None.
+            exp_dt = None
+            if expiration_date:
+                try:
+                    exp_dt = datetime.strptime(expiration_date, "%m/%d/%Y")
+                except ValueError:
+                    pass   # malformed date — safe fallback to today below
 
-            # Create all months till current month
-            while current <= today:
+            # ── End bound: stop at whichever comes first ─────────────────────────
+            # • Expired policy  → exp_dt < today  → loop stops at expiration month
+            # • Active policy   → exp_dt > today  → loop stops at today (no future buckets)
+            # • Missing exp_dt  → falls back to today (same behaviour as before)
+            end_bound = min(today, exp_dt) if exp_dt else today
+
+            # Start from the effective month
+            current = datetime(eff_dt.year, eff_dt.month, 1)
+
+            # Create all months up to (and including) the end_bound month
+            while current <= end_bound:                 # ← was: while current <= today
 
                 month_key = current.strftime("%Y-%m")
+                monthly_map[month_key]                  # pre-create empty bucket
 
-                # Pre-create empty bucket
-                monthly_map[month_key]
-
-                # Next month
+                # Next month — same manual rollover as before (no logic change here)
                 if current.month == 12:
-                    current = datetime(
-                        current.year + 1,
-                        1,
-                        1
-                    )
+                    current = datetime(current.year + 1, 1, 1)
                 else:
-                    current = datetime(
-                        current.year,
-                        current.month + 1,
-                        1
-                    )
+                    current = datetime(current.year, current.month + 1, 1)
 
         except Exception:
             pass

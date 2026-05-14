@@ -55,7 +55,7 @@ from app.core.rate_limiting import rate_limiter
 from app.tools.registry import register_default_tools
 from app.core.cache import init_cache
 from app.core.monitoring import init_monitoring
-from app.api.p2_features import router as p2_router
+from app.api.features import router as p2_router
 
 # P3 features implementation
 from app.api.v1.workflow_marketplace import router as marketplace_router

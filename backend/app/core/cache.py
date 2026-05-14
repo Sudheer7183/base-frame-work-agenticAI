@@ -396,26 +396,7 @@ def cached(ttl: int = 3600, key_prefix: str = ""):
 _cache_manager: Optional[CacheManager] = None
 
 
-# def init_cache(redis_url: Optional[str] = None, default_ttl: int = 3600):
-#     """
-#     Initialize cache system
-    
-#     Args:
-#         redis_url: Redis connection URL (None for in-memory)
-#         default_ttl: Default TTL in seconds
-#     """
-#     global _cache_manager
-    
-#     if redis_url and REDIS_AVAILABLE:
-#         backend = RedisCache(redis_url, default_ttl)
-#         asyncio.create_task(backend.connect())
-#     else:
-#         if redis_url and not REDIS_AVAILABLE:
-#             logger.warning("Redis not available, using in-memory cache")
-#         backend = InMemoryCache(default_ttl)
-    
-#     _cache_manager = CacheManager(backend)
-#     logger.info("Cache system initialized")
+
 def init_cache(redis_url: Optional[str] = None, default_ttl: int = 3600):
     """Initialize cache system"""
     global _cache_manager
