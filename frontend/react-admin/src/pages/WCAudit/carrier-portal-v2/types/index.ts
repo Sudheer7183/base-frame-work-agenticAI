@@ -26,6 +26,7 @@ export interface Policy {
   expirationDate: string
   policyStatus: PolicyStatus
   estPremium: number
+  estimated_premium:number
   estCCPremium: number
   estEarnedPremium: number
   actualEarnedPremium: number
@@ -36,10 +37,12 @@ export interface Policy {
   // ── Payroll submission counts (always integers) ──
   periodsExpected: number   // Math.round(expected_submissions) from API
   periodsReceived: number   // Math.round(submitted_count) from API
+  actualPeriodsRecevied:number
   missingPayrolls: number   // periodsExpected - periodsReceived, clamped ≥ 0
   classCodes: ClassCode[]
   aiNarrative: string
   monthlyTrend?: MonthlyTrend[]
+  
 }
 
 export interface BookSummary {

@@ -12,20 +12,6 @@ from app.workflows.base import WorkflowState
 logger = logging.getLogger(__name__)
 
 
-# class LLMProvider:
-#     """Factory for LLM providers"""
-    
-#     @staticmethod
-#     def get_provider(config: Dict[str, Any]):
-#         """Get appropriate LLM provider based on config"""
-#         provider_type = config.get("provider", "ollama").lower()
-        
-#         if provider_type == "openai":
-#             return OpenAIProvider(config)
-#         elif provider_type == "anthropic":
-#             return AnthropicProvider(config)
-#         else:
-#             return OllamaProvider(config)
 
 
 class LLMProvider:
@@ -100,61 +86,6 @@ class OllamaProvider:
             raise
 
 
-# class OpenAIProvider:
-#     """OpenAI LLM provider"""
-    
-#     def __init__(self, config: Dict[str, Any]):
-#         from app.core.config import settings
-        
-#         self.api_key = config.get("api_key") or getattr(settings, "OPENAI_API_KEY", None)
-#         if not self.api_key:
-#             raise ValueError("OpenAI API key not configured")
-        
-#         self.model = config.get("model", "gpt-4")
-#         self.temperature = config.get("temperature", 0.7)
-#         self.max_tokens = config.get("max_tokens", 2000)
-    
-#     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
-#         """Generate response from OpenAI"""
-#         import httpx
-        
-#         messages = []
-#         if system_prompt:
-#             messages.append({"role": "system", "content": system_prompt})
-#         messages.append({"role": "user", "content": prompt})
-        
-#         try:
-#             async with httpx.AsyncClient(timeout=120.0) as client:
-#                 response = await client.post(
-#                     "https://api.openai.com/v1/chat/completions",
-#                     headers={
-#                         "Authorization": f"Bearer {self.api_key}",
-#                         "Content-Type": "application/json"
-#                     },
-#                     json={
-#                         "model": self.model,
-#                         "messages": messages,
-#                         "temperature": self.temperature,
-#                         "max_tokens": self.max_tokens
-#                     }
-#                 )
-                
-#                 if response.status_code == 200:
-#                     result = response.json()
-#                     return {
-#                         "content": result["choices"][0]["message"]["content"],
-#                         "model": self.model,
-#                         "provider": "openai",
-#                         "success": True,
-#                         "usage": result.get("usage", {})
-#                     }
-#                 else:
-#                     logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
-#                     raise Exception(f"OpenAI API error: {response.status_code}")
-                    
-#         except Exception as e:
-#             logger.error(f"OpenAI error: {e}")
-#             raise
 
 class OpenAIProvider:
     def __init__(self, config: Dict[str, Any]):

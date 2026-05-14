@@ -1,6 +1,6 @@
-// frontend/react-admin/src/pages/WCAudit/carrier-portal/pages/Dashboard.tsx
-// Inline styles throughout — no Tailwind classes.
 
+
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -18,22 +18,168 @@ const fmt = (n: number) =>
 const fmtPct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
 
 const RADIAN = Math.PI / 180
+
 const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-  if (percent < 0.06) return null
-  const r = innerRadius + (outerRadius - innerRadius) * 0.6
-  const x = cx + r * Math.cos(-midAngle * RADIAN)
-  const y = cy + r * Math.sin(-midAngle * RADIAN)
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12}>
       {`${(percent * 100).toFixed(0)}%`}
     </text>
+  );
+};
+
+// ── State multi-select dropdown ──────────────────────────────────────────────
+function StateMultiSelect({
+  allStates,
+  selected,
+  onChange,
+}: {
+  allStates: string[]
+  selected: Set<string>
+  onChange: (next: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const allSelected = selected.size === allStates.length
+
+  const toggle = (state: string) => {
+    const next = new Set(selected)
+    next.has(state) ? next.delete(state) : next.add(state)
+    if (next.size > 0) onChange(next)
+  }
+
+  const toggleAll = () => {
+    onChange(allSelected ? new Set([allStates[0]]) : new Set(allStates))
+  }
+
+  const label = allSelected
+    ? 'All States'
+    : selected.size === 1
+    ? [...selected][0]
+    : `${selected.size} states`
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 10px', fontSize: 12, fontWeight: 600,
+          background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8,
+          color: C.text, cursor: 'pointer', whiteSpace: 'nowrap',
+        }}
+      >
+        <svg width={13} height={13} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+        </svg>
+        {label}
+        <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100,
+          background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: '6px 0',
+          minWidth: 160, maxHeight: 260, overflowY: 'auto',
+        }}>
+          {/* Select all */}
+          <div
+            onClick={toggleAll}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+              borderBottom: `1px solid ${C.border}`, color: C.text,
+            }}
+          >
+            <span style={{
+              width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${C.border}`,
+              background: allSelected ? C.navy : '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              {allSelected && (
+                <svg width={9} height={9} viewBox="0 0 10 10" fill="none">
+                  <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            All States
+          </div>
+
+          {/* Individual states */}
+          {allStates.map(state => {
+            const checked = selected.has(state)
+            return (
+              <div
+                key={state}
+                onClick={() => toggle(state)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 12px', cursor: 'pointer', fontSize: 12,
+                  color: C.text, background: checked ? '#F0F4FF' : '#fff',
+                }}
+              >
+                <span style={{
+                  width: 14, height: 14, borderRadius: 4,
+                  border: `1.5px solid ${checked ? C.navy : C.border}`,
+                  background: checked ? C.navy : '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {checked && (
+                    <svg width={9} height={9} viewBox="0 0 10 10" fill="none">
+                      <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                {state}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { policies, bookSummary, statusDistribution, riskDistribution, stateRiskData, targetVariance } =
     useCarrierPortalData()
+
+  // Derive state list from stateRiskData
+  const allStates = useMemo(
+    () => stateRiskData.map((d: any) => d.state as string),
+    [stateRiskData],
+  )
+
+  const [selectedStates, setSelectedStates] = useState<Set<string>>(() => new Set(allStates))
+
+  // Keep in sync if data reloads
+  useEffect(() => {
+    setSelectedStates(new Set(allStates))
+  }, [allStates.join(',')])
+
+  const filteredStateRiskData = useMemo(
+    () => stateRiskData.filter((d: any) => selectedStates.has(d.state)),
+    [stateRiskData, selectedStates],
+  )
 
   const activePolicies = policies.filter(
     p => p.policyStatus === 'Active' || p.policyStatus === 'Pending Cancel',
@@ -141,21 +287,34 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* State Risk */}
+          {/* State Risk — with multi-select filter */}
           <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Policies by State &amp; Risk Profile</p>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={stateRiskData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="state" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip />
-                <Legend iconType="square" iconSize={10} />
-                <Bar dataKey="Low"    stackId="a" fill={C.green} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Medium" stackId="a" fill={C.amber} />
-                <Bar dataKey="High"   stackId="a" fill={C.red}   radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <p style={{ ...sectionHeadingStyle, margin: 0 }}>Policies by State &amp; Risk Profile</p>
+              <StateMultiSelect
+                allStates={allStates}
+                selected={selectedStates}
+                onChange={setSelectedStates}
+              />
+            </div>
+            {filteredStateRiskData.length === 0 ? (
+              <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: 13 }}>
+                No states selected.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={filteredStateRiskData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="state" tick={{ fontSize: 11 }} interval={0} angle={-45} textAnchor="end" />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Legend iconType="square" iconSize={10} />
+                  <Bar dataKey="Low"    stackId="a" fill={C.green} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="Medium" stackId="a" fill={C.amber} />
+                  <Bar dataKey="High"   stackId="a" fill={C.red}   radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -242,7 +401,7 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   {['Policy #', 'Insured Name', 'St.', 'Effective Date', 'Status',
-                    'Est. Premium', 'Variance', 'Var %', 'Risk', 'Audit Status', 'Actions'].map(h => (
+                    'Est earned', 'Variance', 'Var %', 'Risk', 'Audit Status', 'Actions'].map(h => (
                     <th key={h} style={tableThStyle}>{h}</th>
                   ))}
                 </tr>

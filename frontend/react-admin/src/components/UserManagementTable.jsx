@@ -1,119 +1,85 @@
 /**
  * Enhanced User Management Table with Invitation Support
- * 
+ *
  * File: frontend/react-admin/src/components/UserManagementTable.jsx
- * Purpose: Display and manage users including invitation status
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  IconButton,
-  Button,
-  Chip,
-  Typography,
-  TextField,
-  InputAdornment,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  DialogContentText,
-  CircularProgress,
-  Tooltip,
-  Select,
-  FormControl,
-  InputLabel
+  Box, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, TablePagination, IconButton, Button,
+  Chip, Typography, TextField, InputAdornment, Menu, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  DialogContentText, CircularProgress, Tooltip, Select,
+  FormControl, InputLabel
 } from '@mui/material';
 import {
-  MoreVert as MoreVertIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Send as SendIcon,
-  Cancel as CancelIcon,
-  Search as SearchIcon,
-  Add as AddIcon,
-  FilterList as FilterIcon,
-  Refresh as RefreshIcon
+  MoreVert as MoreVertIcon, Edit as EditIcon,
+  Delete as DeleteIcon, Send as SendIcon,
+  Cancel as CancelIcon, Search as SearchIcon,
+  Add as AddIcon, Refresh as RefreshIcon
 } from '@mui/icons-material';
 import InvitationStatusBadge from './InvitationStatusBadge';
 
+// ── Use apiClient from auth.jsx ───────────────────────────────────────────────
+// apiClient:
+//   • reads 'access_token' from localStorage (not 'token')
+//   • attaches X-Tenant-ID header automatically
+//   • retries once on 401 via backend token refresh proxy
+//   • redirects to /login only when refresh also fails
+import { apiClient } from '../auth';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const UserManagementTable = () => {
   const navigate = useNavigate();
-  
-  // State
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
+
+  const [users, setUsers]             = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [page, setPage]               = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalUsers, setTotalUsers]   = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
-  
-  // Menu state
-  const [anchorEl, setAnchorEl] = useState(null);
+  const [roleFilter, setRoleFilter]   = useState('all');
+
+  const [anchorEl, setAnchorEl]         = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
-  
-  // Dialog state
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [userToAction, setUserToAction] = useState(null);
+  const [userToAction, setUserToAction]         = useState(null);
 
   useEffect(() => {
     fetchUsers();
   }, [page, rowsPerPage, searchQuery, statusFilter, roleFilter]);
 
+  // ── Fetch users ─────────────────────────────────────────────────────────────
   const fetchUsers = async () => {
     setLoading(true);
-    
     try {
-      const token = localStorage.getItem('token');
-      
-      // Build query params
       const params = new URLSearchParams({
-        limit: rowsPerPage,
-        offset: page * rowsPerPage
+        limit:  rowsPerPage,
+        offset: page * rowsPerPage,
       });
-      
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-      
-      if (statusFilter !== 'all') {
-        params.append('invitation_status', statusFilter);
-      }
-      
-      if (roleFilter !== 'all') {
-        params.append('role', roleFilter);
-      }
-      
-      const response = await fetch(`http://127.0.0.1:8002/api/v1/users?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-      
-      const data = await response.json();
+      if (searchQuery)            params.append('search',            searchQuery);
+      if (statusFilter !== 'all') params.append('invitation_status', statusFilter);
+      if (roleFilter   !== 'all') params.append('role',              roleFilter);
+
+      // FIX 1: use apiClient.get() instead of raw fetch()
+      //   • was: localStorage.getItem('token')  → always null → 401 → "Failed to fetch"
+      //   • was: hardcoded http://127.0.0.1:8002 → no tenant header, no auto-refresh
+      //   • now: apiClient reads 'access_token', adds X-Tenant-ID, retries on 401
+      const data = await apiClient.get(
+        `${API_BASE_URL}/api/v1/users?${params}`
+      );
+
+      console.log('data from the users', data);
       setUsers(data.users || []);
       setTotalUsers(data.total || 0);
-      
+
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -122,115 +88,67 @@ const UserManagementTable = () => {
     }
   };
 
-  // Handle menu
-  const handleMenuOpen = (event, user) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedUser(user);
-  };
+  // ── Menu ────────────────────────────────────────────────────────────────────
+  const handleMenuOpen  = (event, user) => { setAnchorEl(event.currentTarget); setSelectedUser(user); };
+  const handleMenuClose = ()             => { setAnchorEl(null); setSelectedUser(null); };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedUser(null);
-  };
-
-  // Handle resend invitation
+  // ── Resend invitation ────────────────────────────────────────────────────────
   const handleResendInvitation = async (userId) => {
     handleMenuClose();
-    
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`http://127.0.0.1:8002/api/v1/users/${userId}/resend-invitation`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to resend invitation');
-      }
-      
+      // FIX 2: apiClient.post() — same reasons as fetchUsers
+      await apiClient.post(`${API_BASE_URL}/api/v1/users/${userId}/resend-invitation`);
       toast.success('Invitation resent successfully!');
-      fetchUsers();
-      
+      await fetchUsers();
     } catch (error) {
       console.error('Error resending invitation:', error);
       toast.error('Failed to resend invitation');
     }
   };
 
-  // Handle cancel invitation
+  // ── Cancel invitation ────────────────────────────────────────────────────────
   const handleCancelInvitation = async () => {
     if (!userToAction) return;
-    
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`http://127.0.0.1:8002/api/v1/users/${userToAction.id}/cancel-invitation`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to cancel invitation');
-      }
-      
+      // FIX 3: apiClient.post()
+      await apiClient.post(`${API_BASE_URL}/api/v1/users/${userToAction.id}/cancel-invitation`);
       toast.success('Invitation cancelled');
       setCancelDialogOpen(false);
       setUserToAction(null);
       fetchUsers();
-      
     } catch (error) {
       console.error('Error cancelling invitation:', error);
       toast.error('Failed to cancel invitation');
     }
   };
 
-  // Handle delete user
+  // ── Delete user ──────────────────────────────────────────────────────────────
   const handleDeleteUser = async () => {
     if (!userToAction) return;
-    
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`http://127.0.0.1:8002/api/v1/users/${userToAction.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-      
+      // FIX 4: apiClient.delete()
+      await apiClient.delete(`${API_BASE_URL}/api/v1/users/${userToAction.id}`);
       toast.success('User deleted successfully');
       setDeleteDialogOpen(false);
       setUserToAction(null);
       fetchUsers();
-      
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('Failed to delete user');
     }
   };
 
-  // Handle edit user
+  // ── Edit user ────────────────────────────────────────────────────────────────
   const handleEditUser = (user) => {
     handleMenuClose();
     navigate(`/admin/users/${user.id}/edit`);
   };
 
-  // Format date
+  // ── Format date ──────────────────────────────────────────────────────────────
   const formatDate = (dateString) => {
     if (!dateString) return '—';
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      year: 'numeric', month: 'short', day: 'numeric',
     });
   };
 
@@ -238,15 +156,8 @@ const UserManagementTable = () => {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" fontWeight="bold">
-          User Management
-        </Typography>
-        
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/admin/users/invite')}
-        >
+        <Typography variant="h5" fontWeight="bold">User Management</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/users/invite')}>
           Invite User
         </Button>
       </Box>
@@ -254,30 +165,18 @@ const UserManagementTable = () => {
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Search */}
           <TextField
             placeholder="Search users..."
             size="small"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
-            }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
             sx={{ minWidth: 250 }}
           />
 
-          {/* Status Filter */}
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Invitation Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Invitation Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
+            <Select value={statusFilter} label="Invitation Status" onChange={(e) => setStatusFilter(e.target.value)}>
               <MenuItem value="all">All Statuses</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
               <MenuItem value="accepted">Accepted</MenuItem>
@@ -286,14 +185,9 @@ const UserManagementTable = () => {
             </Select>
           </FormControl>
 
-          {/* Role Filter */}
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Role</InputLabel>
-            <Select
-              value={roleFilter}
-              label="Role"
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
+            <Select value={roleFilter} label="Role" onChange={(e) => setRoleFilter(e.target.value)}>
               <MenuItem value="all">All Roles</MenuItem>
               <MenuItem value="SUPER_ADMIN">Super Admin</MenuItem>
               <MenuItem value="ADMIN">Admin</MenuItem>
@@ -304,11 +198,8 @@ const UserManagementTable = () => {
 
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* Refresh Button */}
           <Tooltip title="Refresh">
-            <IconButton onClick={fetchUsers} size="small">
-              <RefreshIcon />
-            </IconButton>
+            <IconButton onClick={fetchUsers} size="small"><RefreshIcon /></IconButton>
           </Tooltip>
         </Box>
       </Paper>
@@ -327,7 +218,7 @@ const UserManagementTable = () => {
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
-          
+
           <TableBody>
             {loading ? (
               <TableRow>
@@ -338,62 +229,36 @@ const UserManagementTable = () => {
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
-                  <Typography color="text.secondary">
-                    No users found
-                  </Typography>
+                  <Typography color="text.secondary">No users found</Typography>
                 </TableCell>
               </TableRow>
             ) : (
               users.map((user) => (
                 <TableRow key={user.id} hover>
+                  <TableCell><Typography variant="body2">{user.email}</Typography></TableCell>
+
+                  <TableCell><Typography variant="body2">{user.full_name || '—'}</Typography></TableCell>
+
                   <TableCell>
-                    <Typography variant="body2">{user.email}</Typography>
+                    <InvitationStatusBadge status={user.invitation_status} expiresAt={user.invitation_expires_at} />
                   </TableCell>
-                  
-                  <TableCell>
-                    <Typography variant="body2">
-                      {user.full_name || '—'}
-                    </Typography>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <InvitationStatusBadge
-                      status={user.invitation_status}
-                      expiresAt={user.invitation_expires_at}
-                    />
-                  </TableCell>
-                  
+
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {(user.roles || []).map((role) => (
                         <Chip
-                          key={role}
-                          label={role}
-                          size="small"
-                          variant="outlined"
+                          key={role} label={role} size="small" variant="outlined"
                           color={role === 'ADMIN' || role === 'SUPER_ADMIN' ? 'primary' : 'default'}
                         />
                       ))}
                     </Box>
                   </TableCell>
-                  
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(user.invited_at)}
-                    </Typography>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(user.last_login)}
-                    </Typography>
-                  </TableCell>
-                  
+
+                  <TableCell><Typography variant="body2" color="text.secondary">{formatDate(user.invited_at)}</Typography></TableCell>
+                  <TableCell><Typography variant="body2" color="text.secondary">{formatDate(user.last_login)}</Typography></TableCell>
+
                   <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, user)}
-                    >
+                    <IconButton size="small" onClick={(e) => handleMenuOpen(e, user)}>
                       <MoreVertIcon />
                     </IconButton>
                   </TableCell>
@@ -402,63 +267,37 @@ const UserManagementTable = () => {
             )}
           </TableBody>
         </Table>
-        
+
         <TablePagination
           component="div"
           count={totalUsers}
           page={page}
           onPageChange={(e, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[5, 10, 25, 50]}
         />
       </TableContainer>
 
       {/* Actions Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         {selectedUser?.invitation_status === 'pending' && (
           <>
             <MenuItem onClick={() => handleResendInvitation(selectedUser.id)}>
-              <SendIcon fontSize="small" sx={{ mr: 1 }} />
-              Resend Invitation
+              <SendIcon fontSize="small" sx={{ mr: 1 }} /> Resend Invitation
             </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setUserToAction(selectedUser);
-                setCancelDialogOpen(true);
-                handleMenuClose();
-              }}
-            >
-              <CancelIcon fontSize="small" sx={{ mr: 1 }} />
-              Cancel Invitation
+            <MenuItem onClick={() => { setUserToAction(selectedUser); setCancelDialogOpen(true); handleMenuClose(); }}>
+              <CancelIcon fontSize="small" sx={{ mr: 1 }} /> Cancel Invitation
             </MenuItem>
           </>
         )}
-        
         {selectedUser?.invitation_status === 'accepted' && (
           <MenuItem onClick={() => handleEditUser(selectedUser)}>
-            <EditIcon fontSize="small" sx={{ mr: 1 }} />
-            Edit User
+            <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit User
           </MenuItem>
         )}
-        
-        <MenuItem
-          onClick={() => {
-            setUserToAction(selectedUser);
-            setDeleteDialogOpen(true);
-            handleMenuClose();
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete User
+        <MenuItem onClick={() => { setUserToAction(selectedUser); setDeleteDialogOpen(true); handleMenuClose(); }} sx={{ color: 'error.main' }}>
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete User
         </MenuItem>
       </Menu>
 
@@ -472,12 +311,8 @@ const UserManagementTable = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>
-            No, Keep It
-          </Button>
-          <Button onClick={handleCancelInvitation} color="error" variant="contained">
-            Yes, Cancel Invitation
-          </Button>
+          <Button onClick={() => setCancelDialogOpen(false)}>No, Keep It</Button>
+          <Button onClick={handleCancelInvitation} color="error" variant="contained">Yes, Cancel Invitation</Button>
         </DialogActions>
       </Dialog>
 
@@ -491,12 +326,8 @@ const UserManagementTable = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteUser} color="error" variant="contained">
-            Delete User
-          </Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteUser} color="error" variant="contained">Delete User</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -57,7 +57,11 @@ async def explanation_agent(state: WCAuditState) -> dict:
 1. What was audited and the policy period
 2. What variances or issues were found (use specific numbers)
 3. The root cause(s) of the variance
-4. The recommendation (refund / additional premium / clarification)
+4.The recommendation (refund / additional premium / clarification) 
+Note for Variance calculation:
+    1.Variance Formula Used = Actual Earned premium - Estimated earned premium
+    2.Refund to be issued = Postive variance (which means Extra money has been paid by the insured than the estimated). 
+    3.Additional premium to be collected = Negative Variance (which means the insured paid less amount than expected/estimated)
 
 Audit data:
 {json.dumps(context, indent=2, default=str)}
@@ -69,11 +73,7 @@ class codes, and dates where available. Write in paragraphs only — no bullet p
     source    = "fallback"
 
     try:
-        # ── Uses the platform's existing LLMProvider factory ──────────────
-        # Provider, model, and API key all come from settings / environment.
-        # To switch providers: set LLM_DEFAULT_PROVIDER=openai|anthropic|ollama
-        # To use GROQ: set LLM_DEFAULT_PROVIDER=openai, OPENAI_API_KEY=gsk_...
-        #              and override OPENAI_BASE_URL=https://api.groq.com/openai/v1
+
         provider = LLMProvider.get_provider({
             "provider":    state.get("llm_provider"),   # optional per-audit override
             "temperature": 0.3,

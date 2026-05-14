@@ -263,7 +263,42 @@ async def create_tenant(
     return TenantResponse(**response_data)
  
 
+@router.get("/get-tenants", response_model=List[TenantResponse])
+async def get_all_tenants(
+    translate_content: bool = False,
+    db: Session = Depends(get_db),
+    current_admin: TokenData = Depends(get_super_admin_user)
+):
+    """
+    Get all tenants from public schema
+    """
+    service = TenantService(db)
 
+    try:
+        tenants = service.get_all_tenants()
+
+        response = []
+        for tenant in tenants:
+            tenant_dict = format_tenant_response(tenant)
+            
+            tenant_dict["max_users"] = service.get_user_count_for_schema(
+                tenant.schema_name
+            )
+
+            # Optional translation
+            # if translate_content and should_translate():
+            #     tenant_dict = translate_tenant_fields(tenant_dict)
+
+            response.append(TenantResponse(**tenant_dict))
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error retrieving tenants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving tenants: {str(e)}"
+        )
 
 @router.get("/{slug}", response_model=TenantResponse)
 async def get_tenant(

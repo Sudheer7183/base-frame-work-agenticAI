@@ -79,7 +79,7 @@ from app.api.v1 import cost_analytics_api
 
 # ── Workmen's Comp application ────────────────────────────────────────────────
 from app.api.v1.wc_aduit_api import router as wc_audit_router
-
+from app.api.v1.auth2 import router as auth_router
 # ── NEW: Redis Stream pipeline imports ───────────────────────────────────────
 import redis.asyncio as aioredis
 from app.services.audit_queue import set_redis_client
@@ -115,11 +115,13 @@ init_i18n()
 # ── CORS (must be first middleware) ──────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|[\w-]+\.localhost)(:\d+)?",
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -138,6 +140,7 @@ app.add_middleware(
         "/metrics",
         "/health",
         "api/v1/cost-analytics/health",
+        "/auth/token",
     },
 )
 
@@ -162,7 +165,7 @@ app.include_router(models_router,           prefix="/api/v1")
 app.include_router(metrics_router)
 app.include_router(cost_analytics_api.router, prefix="/api/v1", tags=["cost-analytics"])
 app.include_router(wc_audit_router)          # WC audit routes
-
+app.include_router(auth_router)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Startup — runs once when uvicorn starts

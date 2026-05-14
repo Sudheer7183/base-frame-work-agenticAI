@@ -123,8 +123,9 @@ const InviteUserPage = () => {
       
       // Navigate back
       setTimeout(() => {
-        navigate('/admin/users');
+        navigate(`/${tenantSlug}/admin/users`);
       }, 1500);
+
       
     } catch (error) {
       console.error('Invitation error:', error);
@@ -139,7 +140,8 @@ const InviteUserPage = () => {
       <Box sx={{ mb: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/admin/users')}
+          // onClick={() => navigate('/admin/users')}
+          onClick={() => navigate(`/${tenantSlug}/admin/users`)}
           sx={{ mb: 2 }}
         >
           Back to Users

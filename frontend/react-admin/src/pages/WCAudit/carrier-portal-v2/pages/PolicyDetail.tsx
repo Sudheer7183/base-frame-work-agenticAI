@@ -97,7 +97,7 @@ export default function PolicyDetail() {
 
   // Payroll submission rate — guard divide-by-zero
   const submissionRate = policy.periodsExpected > 0
-    ? Math.round((policy.periodsReceived / policy.periodsExpected) * 100)
+    ? Math.round((policy.actualPeriodsRecevied / policy.periodsReceived) * 100)
     : 0
 
   // Build a single-row chart dataset from overall premium figures
@@ -122,7 +122,7 @@ export default function PolicyDetail() {
   const totEarnExp = policy.classCodes.reduce((s, c) => s + c.earnedExposure, 0)
   const totVar     = totEarnExp - totEstExp
   const totPrem    = policy.classCodes.reduce((s, c) => s + c.estYtdPremium,  0)
-
+  const missingPayrolls = (policy.periodsReceived) - policy.actualPeriodsRecevied
   return (
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <main style={{
@@ -168,8 +168,8 @@ export default function PolicyDetail() {
             <MetricTile label="State"              value={policy.state} />
             <MetricTile label="Effective Date"     value={policy.effectiveDate  || '—'} />
             <MetricTile label="Expiration Date"    value={policy.expirationDate || '—'} />
-            <MetricTile label="Missing Payrolls"   value={String(policy.missingPayrolls)} alert={policy.missingPayrolls > 1} />
-            <MetricTile label="Est. Annual Premium" value={fmt(policy.estPremium)} />
+            <MetricTile label="Missing Payrolls"   value={String(missingPayrolls)} alert={missingPayrolls > 1} />
+            <MetricTile label="Est Annual Premium" value={fmt(policy.estimated_premium)} />
             <MetricTile
               label="Variance %"
               value={`${policy.variancePercent > 0 ? '+' : ''}${policy.variancePercent.toFixed(1)}%`}
@@ -192,8 +192,8 @@ export default function PolicyDetail() {
                   {[
                     ['Policy #', 'left'], ['Insured Name', 'left'], ['St.', 'center'],
                     ['Effective Date', 'left'], ['Policy Status', 'left'],
-                    ['Est. Premium', 'right'], ['Est. Earned', 'right'],
-                    ['Actual Earned', 'right'], ['Variance $', 'right'], ['Var %', 'right'],
+                    ['EST Annual Premium', 'right'], ['EST EARNED', 'right'],
+                    ['ACTUAL EARNED', 'right'], ['Variance $', 'right'], ['Var %', 'right'],
                     ['Risk', 'left'], ['Audit Status', 'left'],
                   ].map(([h, align]) => (
                     <th key={h as string} style={{ ...tableThStyle, textAlign: align as any }}>{h}</th>
@@ -207,7 +207,7 @@ export default function PolicyDetail() {
                   <td style={{ ...tableTdStyle, textAlign: 'center' }}>{policy.state}</td>
                   <td style={tableTdStyle}>{policy.effectiveDate || '—'}</td>
                   <td style={tableTdStyle}><StatusBadge status={policy.policyStatus} /></td>
-                  <td style={{ ...tableTdStyle, textAlign: 'right', fontWeight: 600 }}>{fmt(policy.estPremium)}</td>
+                  <td style={{ ...tableTdStyle, textAlign: 'right', fontWeight: 600 }}>{fmt(policy.estimated_premium)}</td>
                   <td style={{ ...tableTdStyle, textAlign: 'right' }}>{fmt(policy.estEarnedPremium)}</td>
                   <td style={{ ...tableTdStyle, textAlign: 'right' }}>{fmt(policy.actualEarnedPremium)}</td>
                   <td style={{ ...tableTdStyle, textAlign: 'right', fontWeight: 700, color: varPos ? C.red : C.green }}>
@@ -224,13 +224,14 @@ export default function PolicyDetail() {
           </div>
         </div>
 
-        {/* ── Earned Premium vs. Estimated Premium chart ── */}
+        {/* ── Actual Earned Premium Vs EST Premium chart ── */}
         <div style={cardStyle}>
           {/* Chart header — KPI summary row matching the original design */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
             <div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text }}>
-                Earned Premium vs. Estimated Premium
+                Actual Earned Premium Vs EST Earned Premium
+
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: C.muted }}>
                 Overall comparison — actual audit figures vs. pro-rated estimate
@@ -266,8 +267,8 @@ export default function PolicyDetail() {
               <Tooltip content={<CustomTooltip />} />
               <Legend iconType="square" iconSize={10} />
               <ReferenceLine y={0} stroke={C.border} />
-              <Bar dataKey="estimatedPremium" name="Est. Premium"   fill={C.muted}  radius={[4, 4, 0, 0]} />
-              <Bar dataKey="earnedPremium"    name="Earned Premium" fill={C.navy}   radius={[4, 4, 0, 0]} />
+              <Bar dataKey="estimatedPremium" name="Est Earned Premium"   fill={C.muted}  radius={[4, 4, 0, 0]} />
+              <Bar dataKey="earnedPremium"    name="Actual Earned Premium" fill={C.navy}   radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
 
@@ -285,8 +286,8 @@ export default function PolicyDetail() {
                 Variance of{' '}
                 <strong>{policy.variancePercent.toFixed(1)}%</strong>{' '}
                 exceeds the {targetVariance.threshold}% threshold.
-                {policy.missingPayrolls > 1 &&
-                  ` Also flagged for ${policy.missingPayrolls} missing payrolls.`}
+                {missingPayrolls > 1 &&
+                  ` Also flagged for ${missingPayrolls} missing payrolls.`}
               </p>
             </div>
           )}
@@ -303,9 +304,9 @@ export default function PolicyDetail() {
                 <tr>
                   {[
                     ['Class Code', 'left'], ['Description', 'left'],
-                    ['Est. Exposure', 'right'], ['Earned Exposure', 'right'],
+                    ['EST Exposure', 'right'], ['Actual Earned Exposure', 'right'],
                     ['Variance', 'right'], ['Net Rate', 'right'],
-                    ['Est. YTD Premium', 'right'], ['Action', 'left'],
+                    ['Est earned', 'right'], ['Action', 'left'],
                   ].map(([h, align]) => (
                     <th key={h as string} style={{ ...tableThStyle, textAlign: align as any }}>{h}</th>
                   ))}
@@ -378,37 +379,37 @@ export default function PolicyDetail() {
 
         {/* ── Payroll ── */}
         <div style={cardStyle}>
-          <SectionLabel text="Payroll" />
+          <SectionLabel text="Payroll As of date" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {/* Periods Expected */}
             <div style={{ padding: 16, borderRadius: 12, background: '#F8FAFD', border: `1px solid ${C.border}` }}>
               <p style={{ margin: 0, fontSize: 11, color: C.muted, fontWeight: 500 }}>Periods Expected</p>
               <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, color: C.text }}>
-                {policy.periodsExpected}
+                {policy.periodsReceived}
               </p>
             </div>
 
             {/* Periods Received */}
             <div style={{
               padding: 16, borderRadius: 12,
-              background: policy.missingPayrolls > 0 ? '#FFFBEB' : '#F8FAFD',
-              border: `1px solid ${policy.missingPayrolls > 0 ? '#FCD34D' : C.border}`,
+              background: missingPayrolls > 0 ? '#FFFBEB' : '#F8FAFD',
+              border: `1px solid ${missingPayrolls > 0 ? '#FCD34D' : C.border}`,
             }}>
               <p style={{ margin: 0, fontSize: 11, color: C.muted, fontWeight: 500 }}>Periods Received</p>
-              <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, color: policy.missingPayrolls > 0 ? '#92400E' : C.text }}>
-                {policy.periodsReceived}
+              <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, color: missingPayrolls > 0 ? '#92400E' : C.text }}>
+                {policy.actualPeriodsRecevied}
               </p>
             </div>
 
             {/* Missing Periods */}
             <div style={{
               padding: 16, borderRadius: 12,
-              background: policy.missingPayrolls > 0 ? '#FFFBEB' : '#F8FAFD',
-              border: `1px solid ${policy.missingPayrolls > 0 ? '#FCD34D' : C.border}`,
+              background: missingPayrolls > 0 ? '#FFFBEB' : '#F8FAFD',
+              border: `1px solid ${missingPayrolls > 0 ? '#FCD34D' : C.border}`,
             }}>
               <p style={{ margin: 0, fontSize: 11, color: C.muted, fontWeight: 500 }}>Missing Periods</p>
-              <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, color: policy.missingPayrolls > 0 ? '#92400E' : C.text }}>
-                {policy.missingPayrolls}
+              <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, color: missingPayrolls > 0 ? '#92400E' : C.text }}>
+                {missingPayrolls}
               </p>
             </div>
 
@@ -441,8 +442,8 @@ export default function PolicyDetail() {
                 {varAbove
                   ? `This exceeds the ${targetVariance.threshold}% carrier threshold and requires immediate auditor review. `
                   : `This is within the acceptable ${targetVariance.threshold}% carrier threshold. `}
-                {policy.missingPayrolls > 0
-                  ? `There are ${policy.missingPayrolls} missing payroll submission(s), which ${policy.missingPayrolls > 1 ? 'significantly increases' : 'contributes to'} the risk score. `
+                {missingPayrolls > 0
+                  ? `There are ${missingPayrolls} missing payroll submission(s), which ${missingPayrolls > 1 ? 'significantly increases' : 'contributes to'} the risk score. `
                   : 'All payroll periods have been received. '}
                 {policy.risk === 'High'
                   ? 'Classified as HIGH risk — immediate follow-up with insured is recommended.'

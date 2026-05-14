@@ -119,22 +119,16 @@ const SSOCallbackPage = () => {
       }
       
       // Redirect to application
+      const tenantSlug = data.user?.tenant;
+      const adminBase = tenantSlug ? `/${tenantSlug}/admin` : '/admin';
       setTimeout(() => {
         if (data.invitation_accepted) {
-          // New user - show welcome message
-          navigate('/admin/tenants', {
-            state: {
-              message: data.message || 'Welcome! Your account has been activated.',
-              type: 'success'
-            }
+          navigate(`${adminBase}/tenants`, {
+            state: { message: data.message || 'Welcome! Your account has been activated.', type: 'success' }
           });
         } else {
-          // Existing user
-          navigate('/admin/tenants', {
-            state: {
-              message: data.message || 'Welcome back!',
-              type: 'success'
-            }
+          navigate(`${adminBase}/tenants`, {
+            state: { message: data.message || 'Welcome back!', type: 'success' }
           });
         }
       }, 1000);

@@ -1,4 +1,5 @@
 
+
 """
 Database Persistence Node  (v4 — Full SQLAlchemy ORM)
 ======================================================
@@ -309,6 +310,7 @@ def persist_to_database(state: WCAuditState) -> dict:
                     submitted_count       = _safe(state.get("submitted_count"), 0),
                     total_earned_exposure = _safe(overall.get("earned_exposure"), 0),
                     total_earned_premium  = _safe(overall.get("earned_premium"), 0),
+                    # annual_estimated_premium = safe(overall.get("estimated_premium"),0),
                     total_cc_premium=_safe(overall.get("total_cc_premium",0)),
                     total_est_exposure    = _safe(overall.get("est_exposure"), 0),
                     total_est_ytd_premium = _safe(overall.get("est_ytd_premium"), 0),

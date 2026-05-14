@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     KEYCLOAK_URL: str = "http://localhost:8080"
     KEYCLOAK_REALM: str = "agentic"
     KEYCLOAK_CLIENT_ID: str = "agentic-api"
-    KEYCLOAK_CLIENT_SECRET: Optional[str] = None  # Will be loaded from secrets
+    KEYCLOAK_CLIENT_SECRET: Optional[str] = "12345"  # Will be loaded from secrets
     KEYCLOAK_ADMIN_USERNAME: str = "admin"
     KEYCLOAK_ADMIN_PASSWORD: Optional[str] = None  # Will be loaded from secrets
 

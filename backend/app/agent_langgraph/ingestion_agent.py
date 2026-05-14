@@ -142,7 +142,7 @@ def parse_policy_xml(state: WCAuditState) -> dict:
         # Compute expected payroll submissions
         fmt = "%m/%d/%Y"
         d1  = datetime.strptime(effective_date,  fmt)
-        d2  = datetime.strptime(expiration_date, fmt)
+        d2  = datetime.now()
         expected_submissions = (d2 - d1).days / 7   # weekly default
 
         policy_config = {

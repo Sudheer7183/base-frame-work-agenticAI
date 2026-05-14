@@ -395,6 +395,38 @@ class TenantService:
             raise TenantNotFoundError(slug)
         return tenant
     
+
+    def get_all_tenants(self) -> List[Tenant]:
+        try:
+            # Ensure query runs on public schema
+            # self.db.execute(text("SET search_path TO public"))
+
+            tenants = self.db.query(Tenant).all()
+            print("get all tenants", tenants)
+            return tenants
+
+        except Exception as e:
+            logger.error(f"Error fetching tenants: {e}")
+            raise
+        
+        
+    def get_user_count_for_schema(self, schema_name: str) -> int:
+        try:
+            self.db.execute(text(f"SET search_path TO {schema_name}"))
+
+            result = self.db.execute(text("SELECT COUNT(*) FROM users"))
+            count = result.scalar() or 0
+
+            return count
+
+        except Exception as e:
+            logger.warning(f"Failed to get user count for schema {schema_name}: {e}")
+            return 0
+
+        finally:
+            # Reset to public schema
+            self.db.execute(text("SET search_path TO public"))
+
     def list_tenants(
         self,
         status: Optional[TenantStatus] = None,

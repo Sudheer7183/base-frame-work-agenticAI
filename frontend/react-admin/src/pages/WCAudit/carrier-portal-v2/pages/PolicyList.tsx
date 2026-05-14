@@ -28,8 +28,15 @@ export default function PolicyList() {
   const [search,       setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('All')
   const [riskFilter,   setRiskFilter]   = useState<string>('All')
+  const [stateFilter,  setStateFilter]  = useState<string>('All')
   const [sortKey,      setSortKey]      = useState<SortKey>('policyNumber')
   const [sortDir,      setSortDir]      = useState<'asc' | 'desc'>('asc')
+
+  const stateOptions = useMemo(() => {
+    const states = Array.from(new Set(policies.map(p => p.state))).sort()
+    return ['All', ...states]
+  }, [policies])
+
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -42,7 +49,8 @@ export default function PolicyList() {
       return (
         (!q || p.policyNumber.toLowerCase().includes(q) || p.insuredName.toLowerCase().includes(q) || p.state.toLowerCase().includes(q)) &&
         (statusFilter === 'All' || p.policyStatus === statusFilter) &&
-        (riskFilter   === 'All' || p.risk         === riskFilter)
+        (riskFilter   === 'All' || p.risk         === riskFilter) &&
+        (stateFilter  === 'All' || p.state        === stateFilter)
       )
     })
     return [...result].sort((a, b) => {
@@ -61,7 +69,7 @@ export default function PolicyList() {
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [policies, search, statusFilter, riskFilter, sortKey, sortDir])
+  }, [policies, search, statusFilter, riskFilter,stateFilter, sortKey, sortDir])
 
   const thSort = (col: SortKey, label: string, right = false) => (
     <th
@@ -108,7 +116,7 @@ export default function PolicyList() {
         <div style={{ ...cardStyle, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
           <input
             type="text"
-            placeholder="Search by policy #, insured name, or state…"
+            placeholder="Search by policy #, insured name,"
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ ...inputStyle, flex: 1, minWidth: 240 }}
@@ -123,6 +131,12 @@ export default function PolicyList() {
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: C.muted }}>Risk</label>
             <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} style={selectStyle}>
               {['All', 'High', 'Medium', 'Low'].map(r => <option key={r}>{r}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: C.muted }}>State</label>
+            <select value={stateFilter} onChange={e => setStateFilter(e.target.value)} style={selectStyle}>
+              {stateOptions.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: 13, color: C.muted }}>
@@ -158,7 +172,7 @@ export default function PolicyList() {
                   </tr>
                 )}
                 {filtered.map((p, i) => (
-                  <tr key={p.policyNumber} style={{ background: i % 2 === 1 ? '#F8FAFD' : '#fff' }}>
+                  <tr key={`${p.policyNumber}-${i}`} style={{ background: i % 2 === 1 ? '#F8FAFD' : '#fff' }}>
                     <td style={{ ...tableTdStyle, fontFamily: 'monospace', fontWeight: 700, color: C.navy }}>{p.policyNumber}</td>
                     <td style={{ ...tableTdStyle, fontWeight: 600 }}>{p.insuredName}</td>
                     <td style={{ ...tableTdStyle, textAlign: 'center' }}>{p.state}</td>

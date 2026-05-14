@@ -1,5 +1,4 @@
 
-
 """
 api_ingestion_node.py — CACHE-AWARE (replaces existing file)
 =============================================================
@@ -134,10 +133,11 @@ def api_ingestion_node(state: dict) -> dict:
             "payroll_frequency":    policy_config["payroll_frequency"],
             "expected_submissions": policy_config["expected_submissions"],
             "audit_xl_records":     audit_xl_records,
-            "submitted_count":      raw_meta.get("a_actual_payroll_sub", 0),
+            "submitted_count":raw_meta.get("a_actual_payroll_sub", 0),
+            # "submitted_count2":      raw_meta.get("a_actual_payroll_sub2", 0),
             "first_check_date":     raw_meta.get("a_first_check_date", ""),
             "last_check_date":      raw_meta.get("a_last_check_date", ""),
-            "actual_submissions":   float(raw_meta.get("a_actual_payroll_sub", 0)),
+            "actual_submissions":   float(raw_meta.get("a_actual_payroll_sub2", 0)),
             "agent_logs": [{
                 "agent":         "ingestion_excel",
                 "status":        "complete",
@@ -191,7 +191,6 @@ def _normalize_officer(officer: dict) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _normalize_payroll_row(row: dict) -> dict:
-    print("ingestion data classcode",str(row.get("class_code", "") or "").strip())
     return {
         "ClassCode":     str(row.get("class_code", "") or "").strip(),
         "StateCode":     str(row.get("state_code",  "") or "").strip(),

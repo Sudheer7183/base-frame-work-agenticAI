@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.keycloak.service import get_keycloak_service
@@ -82,7 +83,7 @@ async def get_invitation_details(
         # Check if expired
         if user.invitation_expires_at:
             from datetime import datetime
-            if datetime.utcnow() > user.invitation_expires_at:
+            if datetime.now(timezone.utc) > user.invitation_expires_at:
                 user.invitation_status = 'expired'
                 db.commit()
                 

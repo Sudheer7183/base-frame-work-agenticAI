@@ -8,7 +8,6 @@ import type {
   CarrierPortalData,
 } from '../types'
 import { getSystemDate } from '../../../../../systemDate'
-
 const THRESHOLD = 30
 
 // ─── Status maps ──────────────────────────────────────────────────────────────
@@ -28,38 +27,14 @@ const RISK_MAP: Record<string, RiskLevel> = {
 }
 
 
-
-// function derivePolicyStatus(c: any): PolicyStatus {
-//   // Expired check (keep first priority)
-//   if (c.expiration_date) {
-//     try {
-//       const d = new Date(c.expiration_date)
-//       if (!isNaN(d.getTime()) && d < new Date()) return 'Expired'
-//     } catch { /* ignore */ }
-//   }
-
-//   const expected = Number(c.expected_submissions ?? 0)
-//   const submitted = Number(c.submitted_count ?? 0)
-
-//   // Pending Cancel logic
-//   if (
-//     c.recommendation === 'refund' ||
-//     submitted > expected
-//   ) {
-//     return 'Pending Cancel'
-//   }
-
-//   return 'Active'
-// }
-
 function stripTime(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
-
 function derivePolicyStatus(c: any): PolicyStatus {
   const systemDate = stripTime(getSystemDate())
 
   // Expired check
+  console.log("expiry dates", c.expiration_date)
   if (c.expiration_date) {
     try {
       const d = stripTime(new Date(c.expiration_date))
@@ -67,18 +42,20 @@ function derivePolicyStatus(c: any): PolicyStatus {
     } catch { /* ignore */ }
   }
 
+  
   const expected = Number(c.expected_submissions ?? 0)
   const submitted = Number(c.submitted_count ?? 0)
 
-  if (
-    c.recommendation === 'refund' ||
-    submitted > expected
-  ) {
-    return 'Pending Cancel'
-  }
+  // if (
+  //   c.recommendation === 'refund' ||
+  //   submitted > expected
+  // ) {
+  //   return 'Pending Cancel'
+  // }
 
   return 'Active'
 }
+
 
 // ─── Core transform: one raw API case → Policy ────────────────────────────────
 function transformCase(c: any): Policy {
@@ -89,6 +66,7 @@ function transformCase(c: any): Policy {
   const monthly = ov.monthly_trend ?? []
   
   const estPremium      = Number(ov.est_ytd_premium ?? 0)
+  const estimated_premium = Number(ov.annual_estimated_premium ?? 0)
   const estCCPremium = Number(ov.total_cc_premium   ?? 0)
   const actualEarned    = Number(ov.earned_premium  ?? 0)
   const variance        = Number(c.variance         ?? ov.variance     ?? 0)
@@ -97,6 +75,8 @@ function transformCase(c: any): Policy {
   // ── Payroll counts: round to integers, never negative ────────────────────
   const periodsExpected = Math.max(0, Math.round(Number(c.expected_submissions ?? 0)))
   const periodsReceived = Math.max(0, Math.round(Number(c.submitted_count      ?? 0)))
+  // const ActualpreiodsReceived = Math.max(0, Math.round(Number(c.submitted_count2      ?? 0)))
+  const actualPeriodsRecevied = Math.max(0, Math.round(Number(c.actual_submissions      ?? 0)))
   // Clamp missing to 0..periodsExpected so we never show negatives
   const missingPayrolls = Math.max(0, periodsExpected - periodsReceived)
 
@@ -117,9 +97,19 @@ function transformCase(c: any): Policy {
     }
   })
 
-  const firstStateCode = c.class_code_variance?.[0]?.StateCode 
-  ?? c.class_code_variance?.[0]?.state_code 
-  ?? ''
+
+
+  const firstStateCode =
+  c.state_code ??        // API field
+  c.state ??             // fallback (your mock data uses this)
+  c.class_code_variance?.[0]?.StateCode ??
+  c.class_code_variance?.[0]?.state_code ??
+  ''
+
+  const normalizedState = String(firstStateCode)
+  .trim()
+  .toUpperCase()
+  .slice(0, 2)
   const Statecodes:ClassCode[] = (c.class_code_variance ?? []).map((cc:any)=>{
     const state_code = String(cc.StateCode ?? "")
 
@@ -132,11 +122,12 @@ function transformCase(c: any): Policy {
   return {
     policyNumber:        String(c.policy_number ?? c.audit_case_id ?? ''),
     insuredName:         String(c.insured_name  ?? ''),
-    state:               String(firstStateCode),
+    state:               String(normalizedState),
     effectiveDate:       String(c.effective_date  ?? ''),
     expirationDate:      String(c.expiration_date ?? ''),
     policyStatus:        derivePolicyStatus(c),
     estPremium,
+    estimated_premium,
     estCCPremium,
     estEarnedPremium:    estPremium,
     actualEarnedPremium: actualEarned,
@@ -146,6 +137,7 @@ function transformCase(c: any): Policy {
     auditStatus:  AUDIT_STATUS_MAP[String(c.status ?? 'pending')]       ?? 'Pending',
     periodsExpected,
     periodsReceived,
+    actualPeriodsRecevied,
     missingPayrolls,
     classCodes,
     aiNarrative:  String(c.ai_narrative ?? ''),
@@ -185,16 +177,39 @@ function buildRiskDist(active: Policy[]): DistributionEntry[] {
   ].filter(d => d.value > 0)
 }
 
-function buildStateRisk(active: Policy[]): StateRiskEntry[] {
-  const states = [...new Set(active.map(p => p.state).filter(s => s && s !== '—'))].sort()
-  return states.map(state => ({
-    state,
-    High:   active.filter(p => p.state === state && p.risk === 'High').length,
-    Medium: active.filter(p => p.state === state && p.risk === 'Medium').length,
-    Low:    active.filter(p => p.state === state && p.risk === 'Low').length,
-  }))
-}
+// function buildStateRisk(active: Policy[]): StateRiskEntry[] {
+//   const states = [...new Set(active.map(p => p.state).filter(s => s && s !== '—'))].sort()
+//   return states.map(state => ({
+//     state,
+//     High:   active.filter(p => p.state === state && p.risk === 'High').length,
+//     Medium: active.filter(p => p.state === state && p.risk === 'Medium').length,
+//     Low:    active.filter(p => p.state === state && p.risk === 'Low').length,
+//   }))
+// }
 
+function buildStateRisk(all: Policy[]): StateRiskEntry[] {
+  const stateMap = new Map<string, { High: number; Medium: number; Low: number }>()
+
+  for (const p of all) {
+    // const state = p.state.trim().toUpperCase().replace(/[^A-Z]/g, '')
+    const state = p.state
+  ?.trim()
+  .toUpperCase()
+  .slice(0, 2)
+
+if (!/^[A-Z]{2}$/.test(state)) continue
+    if (!state) continue
+
+    if (!stateMap.has(state)) {
+      stateMap.set(state, { High: 0, Medium: 0, Low: 0 })
+    }
+    stateMap.get(state)![p.risk] += 1
+  }
+
+  return Array.from(stateMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([state, counts]) => ({ state, ...counts }))
+}
 function buildTargetVariance(active: Policy[]): TargetVariance {
   const over  = active.filter(p => Math.abs(p.variancePercent) >  THRESHOLD)
   const under = active.filter(p => Math.abs(p.variancePercent) <= THRESHOLD)
@@ -238,7 +253,7 @@ export function useCarrierPolicies(): CarrierPortalData {
     bookSummary:        buildBookSummary(activePolicies),
     statusDistribution: buildStatusDist(policies),
     riskDistribution:   buildRiskDist(activePolicies),
-    stateRiskData:      buildStateRisk(activePolicies),
+    stateRiskData:      buildStateRisk(policies),
     targetVariance:     buildTargetVariance(activePolicies),
     loading,
     error,
