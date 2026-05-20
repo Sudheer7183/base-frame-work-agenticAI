@@ -71,7 +71,7 @@ function transformCase(c: any): Policy {
   const actualEarned    = Number(ov.earned_premium  ?? 0)
   const variance        = Number(c.variance         ?? ov.variance     ?? 0)
   const variancePercent = Number(c.variance_pct     ?? ov.variance_pct ?? 0)
-
+  const completed_at = String(c.completed_at ?? "")
   // ── Payroll counts: round to integers, never negative ────────────────────
   const periodsExpected = Math.max(0, Math.round(Number(c.expected_submissions ?? 0)))
   const periodsReceived = Math.max(0, Math.round(Number(c.submitted_count      ?? 0)))
@@ -125,6 +125,8 @@ function transformCase(c: any): Policy {
     state:               String(normalizedState),
     effectiveDate:       String(c.effective_date  ?? ''),
     expirationDate:      String(c.expiration_date ?? ''),
+    payment_frequency:String(c?.payment_frequency ?? ''),
+    completed_at :completed_at,
     policyStatus:        derivePolicyStatus(c),
     estPremium,
     estimated_premium,

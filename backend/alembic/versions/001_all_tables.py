@@ -803,6 +803,7 @@ def upgrade() -> None:
                 total_earned_exposure  NUMERIC(15,2) DEFAULT 0.0,
                 total_earned_premium   NUMERIC(15,2) DEFAULT 0.0,
                 total_est_exposure     NUMERIC(15,2) DEFAULT 0.0,
+                total_cc_premium     NUMERIC(15,2) DEFAULT 0.0,
                 total_est_ytd_premium  NUMERIC(15,2) DEFAULT 0.0,
                 total_variance         NUMERIC(15,2) DEFAULT 0.0,
                 total_variance_pct     NUMERIC(8,4)  DEFAULT 0.0,

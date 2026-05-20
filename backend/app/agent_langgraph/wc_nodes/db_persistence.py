@@ -141,7 +141,7 @@ def persist_to_database(state: WCAuditState) -> dict:
     policy_number = state.get("policy_number") or policy_cfg.get("policy_number", "")
     overall       = state.get("overall_variance") or {}
     errors:  list = []
-    now           = datetime.utcnow()
+    now           = datetime.now()
 
     db = SessionLocal()
     policy_db_id: Optional[int] = None
@@ -178,7 +178,7 @@ def persist_to_database(state: WCAuditState) -> dict:
                     effective_date    = _date(policy_cfg.get("effective_date")),
                     expiration_date   = _date(policy_cfg.get("expiration_date")),
                     estimated_premium = _safe(policy_cfg.get("est_premium"), 0),
-                    payroll_frequency = _safe(policy_cfg.get("payroll_freq"), "1W"),
+                    payroll_frequency = _safe(policy_cfg.get("payroll_frequency"), "1W"),
                     state_code        = state_code,
                     created_at        = now,
                     updated_at        = now,
@@ -189,7 +189,7 @@ def persist_to_database(state: WCAuditState) -> dict:
                 policy_obj.effective_date    = _date(policy_cfg.get("effective_date"))
                 policy_obj.expiration_date   = _date(policy_cfg.get("expiration_date"))
                 policy_obj.estimated_premium = _safe(policy_cfg.get("est_premium"), 0)
-                policy_obj.payroll_frequency = _safe(policy_cfg.get("payroll_freq"), "1W")
+                policy_obj.payroll_frequency = _safe(policy_cfg.get("payroll_frequency"), "1W")
                 policy_obj.state_code        = state_code
                 policy_obj.updated_at        = now
 

@@ -413,6 +413,7 @@ def _db_case_to_dict(case: "AuditCase", live_hitl_check: bool = True) -> dict:
         "effective_date":       _fmt_date(policy.effective_date   if policy else None),
         "expiration_date":      _fmt_date(policy.expiration_date  if policy else None),
         "payment_frequency":    _map_frequency(policy.payroll_frequency if policy else None),
+        # "payment_frequency":policy.payroll_frequency if policy else None,
         "insured_name":str(policy.insured_name if policy else None),
         # ── Audit timeline ────────────────────────────────────────────
         "submitted_count":      case.submitted_count,

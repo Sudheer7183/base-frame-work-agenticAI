@@ -22,8 +22,10 @@ export interface Policy {
   policyNumber: string
   insuredName: string
   state: string
+  payment_frequency:string
   effectiveDate: string
   expirationDate: string
+  completed_at:String
   policyStatus: PolicyStatus
   estPremium: number
   estimated_premium:number
